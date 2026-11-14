@@ -98,7 +98,6 @@
     "card-red": "#B4443A", "card-purple": "#6B3FA0", "wallet-purple": "#6B3FA0", "wallet-teal": "#2C8AAE", "wallet-blue": "#2F5FD0" };
   const srcColor = (s) => (s.icon && s.icon.startsWith("#") ? s.icon : LEGACY[s.icon]) || SRC_COLOR_DEFAULT[s.kind] || "#4B5563";
   const srcShape = (kind, c) => {
-    if (kind === "yape") return `<rect x="8" y="0.5" width="12" height="19" rx="2.5" fill="${c}"/><rect x="10.3" y="3" width="7.4" height="11" rx="1" fill="#fff" fill-opacity=".85"/>`;
     if (kind === "account" || kind === "other") return `<path d="M3 8 14 1.5 25 8" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/><path d="M6 9.5v6.5M11 9.5v6.5M17 9.5v6.5M22 9.5v6.5M3 18.5h22" stroke="${c}" stroke-width="2" stroke-linecap="round"/>`;
     if (kind === "cash") return `<rect x="0.5" y="3.5" width="27" height="13" rx="2" fill="${c}"/><circle cx="14" cy="10" r="3" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.6"/>`;
     return `<rect x="0.5" y="0.5" width="27" height="19" rx="3" fill="${c}"/><rect x="0.5" y="4.5" width="27" height="3.5" fill="#000" fill-opacity=".22"/><rect x="4" y="11.5" width="6" height="4" rx="1" fill="#fff" fill-opacity=".8"/>`;
@@ -106,6 +105,7 @@
   function srcIcon(src, cls) {
     if (!src) return "";
     if (src.image) return `<img class="src-ic ${cls || ""}" src="${esc(src.image)}" alt="">`;
+    if (src.kind === "yape") return `<img class="src-ic ${cls || ""}" src="img/yape.svg" alt="">`;
     return `<svg class="src-ic ${cls || ""}" viewBox="0 0 28 20" aria-hidden="true">${srcShape(src.kind, srcColor(src))}</svg>`;
   }
 
@@ -703,8 +703,8 @@
             <span class="name" style="flex:1;min-width:0"><b>${esc(x.name || full(x))}</b><small>${esc((x.name ? full(x) + " · " : "") + (x.n === 1 ? t("payments_1") : t("payments_n", { n: x.n })))}</small></span>${ICON.down}</button>
           <div class="srcedit" data-edit="${i}" hidden>
             <label>${esc(t("src_name"))}</label><input value="${esc(x.name || "")}" placeholder="${esc(full(x))}" data-name="${i}" maxlength="30">
-            <label>${esc(t("src_color"))}</label>
-            <div class="swatches" role="radiogroup" aria-label="${esc(t("src_color"))}">${SRC_COLORS.map((c) =>
+            ${x.kind === "yape" ? "" : `<label>${esc(t("src_color"))}</label>`}
+            <div class="swatches" ${x.kind === "yape" ? "hidden" : ""} role="radiogroup" aria-label="${esc(t("src_color"))}">${SRC_COLORS.map((c) =>
               `<button role="radio" aria-checked="${!x.image && srcColor(x) === c}" aria-label="${c}" data-color="${c}" style="background:${c}"></button>`).join("")}</div>
             <label>${esc(t("src_image"))}</label>
             <div class="imgpick">${x.image ? `<img src="${esc(x.image)}" alt=""><button class="btn" data-noimg="${i}">${esc(t("remove"))}</button>`
