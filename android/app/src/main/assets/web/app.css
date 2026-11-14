@@ -87,7 +87,7 @@ ol.steps { padding-left: 1.2rem; margin: 10px 0 0; }
 ol.steps li { margin: 6px 0; }
 .check { display: flex; gap: 10px; align-items: center; margin-top: 14px; font-size: .95rem; }
 .check input { width: 20px; height: 20px; }
-.status { margin-top: 14px; font-size: .92rem; }
+.status { margin-top: 14px; font-size: .92rem; white-space: pre-line; }
 .status.err { color: var(--bad); } .status.ok { color: var(--good); }
 pre.body { white-space: pre-wrap; word-break: break-word; background: var(--soft); padding: 12px; border-radius: 12px; font-size: .78rem; max-height: 360px; overflow: auto; text-align: left; }
 .tag { font-size: .78rem; color: var(--muted); }

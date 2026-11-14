@@ -14,7 +14,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
             runCatching { api.aiRun() }
             Result.success()
         } catch (e: Exception) {
-            if (e.message == "auth") Result.failure() else Result.retry()
+            if (e.message?.startsWith("auth") == true) Result.failure() else Result.retry()
         }
     }
 }

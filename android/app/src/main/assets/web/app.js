@@ -609,18 +609,26 @@
       <div class="status" id="gs">${s.lastSync ? esc(t("last_read", { d: s.lastSync.slice(0, 16) })) : ""}</div>`;
     $("#gc").addEventListener("click", async () => {
       const btn = $("#gc"), st = $("#gs");
-      const email = $("#ge").value.trim();
-      if (!email) return $("#ge").focus();
+      const email = $("#ge").value.trim().toLowerCase();
+      if (!email || !email.includes("@")) return $("#ge").focus();
+      // La contraseña de aplicación son 16 letras (Google la muestra en grupos de 4 con espacios).
+      const pw = $("#gp").value.replace(/[\s\u00a0-]+/g, "");
+      if (pw && !/^[a-zA-Z]{16}$/.test(pw)) {
+        st.className = "status err";
+        st.textContent = t("err_pw_format", { n: pw.length });
+        return;
+      }
       btn.disabled = true; st.className = "status"; st.textContent = t("reading_start");
       await call("settings.save", { email });
-      const pw = $("#gp").value.replace(/\s+/g, "");
       if (pw) await call("secret.set", { name: "imap", value: pw });
       onProgress = (i, n) => { st.textContent = t("reading", { i, n }); };
       try {
         const r = await call("sync");
         st.className = "status ok"; st.textContent = t("read_result", r);
       } catch (e) {
-        st.className = "status err"; st.textContent = L["err_" + e.message] ? t("err_" + e.message) : t("err_connect");
+        const [code, detail] = String(e.message || "").split("|");
+        st.className = "status err";
+        st.textContent = (L["err_" + code] ? t("err_" + code) : t("err_connect")) + (detail ? "\n\nGoogle: " + detail : "");
       } finally { btn.disabled = false; onProgress = null; }
     });
   }

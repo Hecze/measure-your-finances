@@ -47,9 +47,10 @@ object Imap {
         try {
             store.connect(host, user, password)
         } catch (e: javax.mail.AuthenticationFailedException) {
-            throw ImapException("auth")
+            // Se conserva el mensaje de Google (ej. "[AUTHENTICATIONFAILED] Invalid credentials") para mostrarlo.
+            throw ImapException("auth|" + (e.message ?: "").take(200))
         } catch (e: javax.mail.MessagingException) {
-            throw ImapException("connect")
+            throw ImapException("connect|" + (e.message ?: e.cause?.message ?: "").take(200))
         }
         try {
             val folder = allMailFolder(store)
