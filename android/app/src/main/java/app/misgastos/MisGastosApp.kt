@@ -44,6 +44,9 @@ class MisGastosApp : Application() {
 
 /** Guarda el estado en el almacenamiento privado de la app, de forma atómica. */
 class FileStorage(private val file: File) : Storage {
+    private val mails = app.misgastos.core.MailDir(File(file.parentFile, "mail"))
+    override fun saveMail(id: String, html: String) = mails.save(id, html)
+    override fun loadMail(id: String): String? = mails.load(id)
     override fun load(): String? = if (file.exists()) file.readText() else null
     override fun save(json: String) {
         val tmp = File(file.parentFile, file.name + ".tmp")

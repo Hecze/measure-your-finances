@@ -27,6 +27,11 @@ fun main() {
         object : Storage {
             override fun load() = if (dataFile.exists()) dataFile.readText() else null
             override fun save(json: String) = dataFile.writeText(json)
+            private val mails = app.misgastos.core.MailDir(File(dataFile.absoluteFile.parentFile, "mail"))
+            override fun saveMail(id: String, html: String) = mails.save(id, html)
+            // En desarrollo, los correos de ejemplo se leen de la carpeta de semillas.
+            override fun loadMail(id: String): String? = mails.load(id) ?: System.getenv("SEED_EMAILS_DIR")
+                ?.let { File(it, "$id.json") }?.takeIf { it.exists() }?.let { JSONObject(it.readText()).optString("htmlBody") }
         },
         object : Secrets {
             override fun get(name: String) = secrets[name] ?: System.getenv("SECRET_" + name.uppercase())

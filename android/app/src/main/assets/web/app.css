@@ -1,18 +1,17 @@
+@font-face { font-family: "Plex"; src: url("fonts/plex-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Plex"; src: url("fonts/plex-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Plex"; src: url("fonts/plex-600.woff2") format("woff2"); font-weight: 600 700; font-display: swap; }
+/* Siempre claro: fondo blanco, grises y un solo acento (azul banco). El color fuerte lo ponen los medios de pago del usuario. */
 :root {
-  --bg: #ffffff; --text: #111113; --muted: #86868b; --line: #ececee; --soft: #f4f4f6;
-  --accent: #5b21b6; --on-accent: #ffffff; --good: #15803d; --bad: #c2410c;
-  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948; --s-other: #b4b4ba;
+  --bg: #ffffff; --text: #14161a; --muted: #5f6672; --line: #e6e8ec; --soft: #f5f6f8; --tint: #f1f4fb;
+  --accent: #1d3a8a; --on-accent: #ffffff; --good: #1e7a4f; --bad: #b4443a;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948; --s-other: #c3c7cf;
   color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #0b0b0d; --text: #f2f2f4; --muted: #8c8c94; --line: #222226; --soft: #17171a;
-          --accent: #a78bfa; --on-accent: #120a24; --good: #4ade80; --bad: #fb923c; color-scheme: dark;
-          --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767; --s-other: #55555c; }
 }
 [hidden] { display: none !important; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; }
-body { background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, -apple-system, Roboto, "Segoe UI", sans-serif;
+body { background: var(--bg); color: var(--text); font: 16px/1.45 "Plex", system-ui, Roboto, "Segoe UI", sans-serif;
        -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 a { color: inherit; text-decoration: none; }
@@ -117,7 +116,6 @@ pre.body { white-space: pre-wrap; word-break: break-word; background: var(--soft
 .icon.sm { width: 16px; height: 16px; }
 .toast { display: flex; align-items: center; gap: 12px; }
 .toast-btn { color: var(--accent); font-weight: 700; }
-@media (prefers-color-scheme: dark) { .toast-btn { color: #5b21b6; } }
 .ed-sub { color: var(--muted); font-size: .88rem; margin-top: 2px; }
 .ed-tag { display: inline-block; margin-top: 12px; padding: 5px 12px; border-radius: 999px; background: var(--bg);
           color: var(--muted); font-size: .85rem; }
@@ -175,16 +173,81 @@ pre.body { white-space: pre-wrap; word-break: break-word; background: var(--soft
 .ed-src b { color: var(--text); font-weight: 600; }
 .ed-src .icon { flex: none; }
 
-/* medios de pago */
-.src-ic { width: 18px; height: 18px; flex: none; vertical-align: -4px; margin-right: 5px; }
-.src-ic.line { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.ed-src .src-ic { width: 22px; height: 22px; margin: 0; }
-.srcrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
-.srcrow input { padding: 10px 12px; }
-.srcrow small { display: block; margin-top: 4px; font-size: .8rem; }
-.srcpick { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 12px; background: var(--soft); }
-.srcpick .src-ic { width: 32px; height: 32px; margin: 0; }
-.srcgrid { flex-basis: 100%; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
-.srcgrid button { aspect-ratio: 1; display: grid; place-items: center; border-radius: 12px; border: 1.5px solid var(--line); }
-.srcgrid button.on { border-color: var(--accent); }
-.srcgrid .src-ic { width: 30px; height: 30px; margin: 0; }
+/* ===== Diseño A: inicio ===== */
+.top .month span { font-weight: 600; color: var(--text); min-width: 0; }
+body.past .top .month { background: none; }
+.hero { margin: 18px 0 0; }
+.hero-label { font-size: .9rem; color: var(--muted); }
+.total { font-size: 2.6rem; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; }
+.sub { margin-top: 2px; font-size: .9rem; }
+.fv { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 12px; margin-top: 18px; }
+.fv a { padding: 12px 14px; }
+.fv a + a { border-left: 1px solid var(--line); }
+.fv small { display: block; font-size: .82rem; color: var(--muted); }
+.fv b { font-size: 1.1rem; font-weight: 600; }
+.todo { margin: 10px 0 0; padding: 13px 14px; border-radius: 12px; background: var(--tint); color: var(--accent); font-size: .95rem; }
+h2 { font-size: .95rem; text-transform: none; letter-spacing: 0; color: var(--text); margin: 26px 0 6px; }
+.home-pie { width: 180px; margin: 6px auto 8px; }
+.catline { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.catline .icon.cat { color: var(--muted); opacity: 1; width: 22px; height: 22px; stroke-width: 1.6; }
+.cl-main { flex: 1; min-width: 0; }
+.cl-top { display: flex; justify-content: space-between; gap: 10px; font-size: .95rem; }
+.cl-amt { font-weight: 600; }
+.cl-pct { font-size: .82rem; }
+.cl-bar { display: block; height: 4px; border-radius: 4px; background: var(--soft); margin-top: 6px; overflow: hidden; }
+.cl-bar i { display: block; height: 100%; border-radius: 4px; }
+.link-inline { color: var(--accent); font-size: .9rem; padding: 8px 0 0 34px; }
+.srcline { display: flex !important; align-items: center; gap: 5px; }
+.row .name b { font-weight: 500; }
+.row .amt { font-weight: 600; }
+.more { color: var(--accent); }
+
+/* medio de pago: tarjeta / billetera / cuenta pintada con el color del usuario */
+.src-ic { width: 22px; height: 16px; flex: none; vertical-align: -3px; margin-right: 6px; object-fit: contain; }
+.src-ic.xs { width: 18px; height: 13px; margin-right: 1px; }
+.src-ic.lg { width: 40px; height: 28px; margin: 0; }
+.row small .src-ic { margin-right: 5px; }
+
+/* editor */
+.ed-head { background: none; border-radius: 0; padding: 6px 0 0; text-align: left; }
+.ed-sub { color: var(--muted); font-size: .88rem; margin: 0; }
+.ed-amount { font-size: 2.4rem; font-weight: 600; letter-spacing: -.02em; }
+.ed-amount input { text-align: left; font-size: 1.8rem; }
+.ed-who { justify-content: flex-start; margin-top: 2px; font-size: 1.15rem; }
+.ed-who input { text-align: left; }
+.ed-tag { display: inline-flex; align-items: center; gap: 7px; margin-top: 8px; padding: 0; background: none; color: var(--text); font-size: .95rem; border-radius: 0; }
+.ed-tag .icon.cat { color: var(--text); width: 20px; height: 20px; }
+.ed-tag b { font-weight: 500; }
+.src-box { margin-top: 18px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.sb-main { display: flex; align-items: center; gap: 14px; padding: 14px 16px; }
+.sb-main small { display: block; font-size: .8rem; color: var(--muted); }
+.sb-main b { display: block; font-weight: 600; }
+.sb-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 16px; border-top: 1px solid var(--line);
+           background: #fafbfc; font-size: .85rem; color: var(--muted); min-height: 44px; }
+.sb-foot b { color: var(--text); font-weight: 500; }
+.sb-link { display: inline-flex; align-items: center; gap: 2px; color: var(--accent); font-weight: 600; font-size: .9rem; padding: 8px 0; }
+.sb-link .icon { width: 16px; height: 16px; }
+.ed-input { background: var(--bg); border: 1px solid #cdd1d8; border-radius: 10px; }
+.btn { border-radius: 10px; border-color: #cdd1d8; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.toast-btn { color: #9db4f0; }
+
+/* la fuente */
+.mailbar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 12px; }
+.mailframe { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; }
+.mailframe iframe { display: block; width: 100%; height: 70vh; border: 0; }
+
+/* ajustes: medios de pago */
+.srcrow { display: block; padding: 0; border-bottom: 1px solid var(--line); }
+.srchead { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 0; text-align: left; }
+.srchead .name b { display: block; font-weight: 600; }
+.srchead .name small { display: block; color: var(--muted); font-size: .85rem; }
+.srcedit { padding: 0 0 16px; }
+.srcedit label { margin-top: 12px; }
+.swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+.swatches button { aspect-ratio: 1; border-radius: 999px; }
+.swatches button[aria-checked="true"] { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--text); }
+.imgpick { display: flex; align-items: center; gap: 12px; }
+.imgpick img { width: 44px; height: 44px; object-fit: contain; border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.imgpick .btn { width: auto; }
+.filebtn { display: inline-flex; margin: 0; color: var(--text); font-size: 1rem; }

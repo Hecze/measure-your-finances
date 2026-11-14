@@ -90,25 +90,30 @@
       default: return s.bank || "";
     }
   }
-  // Íconos de medio de pago (el usuario elige cuál va con cada tarjeta / billetera).
-  const cardSvg = (fill, chip) => `<svg class="src-ic" viewBox="0 0 24 24"><rect x="1.5" y="4.5" width="21" height="15" rx="2.6" fill="${fill}"/><rect x="1.5" y="8" width="21" height="2.4" fill="rgba(0,0,0,.28)"/><rect x="4.5" y="12.6" width="4.6" height="3.4" rx=".8" fill="${chip}"/></svg>`;
-  const walletSvg = (fill) => `<svg class="src-ic" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5.5" fill="${fill}"/><rect x="8" y="5.5" width="8" height="13" rx="1.8" fill="none" stroke="#fff" stroke-width="1.6"/><path d="M11 15.8h2" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>`;
-  const SRC_STYLES = {
-    "wallet-purple": walletSvg("#742284"), "wallet-teal": walletSvg("#00a19a"), "wallet-blue": walletSvg("#1d4ed8"),
-    "card-blue": cardSvg("#1d4ed8", "#e5e7eb"), "card-gold": cardSvg("#c99a2e", "#fbe7a1"), "card-black": cardSvg("#1f2023", "#c9c9cf"),
-    "card-silver": cardSvg("#9ca3af", "#f3f4f6"), "card-green": cardSvg("#15803d", "#e5e7eb"), "card-red": cardSvg("#b91c1c", "#e5e7eb"),
-    "card-purple": cardSvg("#6d28d9", "#e5e7eb"),
-    bank: '<svg class="src-ic line" viewBox="0 0 24 24"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M19 10v8M9.5 10v8M14.5 10v8M3 20h18"/></svg>',
-    cash: '<svg class="src-ic" viewBox="0 0 24 24"><rect x="1.5" y="6" width="21" height="12" rx="2" fill="#15803d"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="#fff" stroke-width="1.5"/></svg>',
+  // Ícono de medio de pago: la FORMA dice el tipo (tarjeta, billetera, cuenta, efectivo) y el COLOR, cuál es.
+  // El color lo elige el usuario; también puede subir su propia imagen (p. ej. el logo de su billetera).
+  const SRC_COLORS = ["#4B5563", "#2F5FD0", "#2C8AAE", "#2E7D5B", "#B8892B", "#C2622D", "#B4443A", "#6B3FA0"];
+  const SRC_COLOR_DEFAULT = { yape: "#6B3FA0", debit: "#2F5FD0", credit: "#4B5563", account: "#4B5563", cash: "#2E7D5B", other: "#4B5563" };
+  const LEGACY = { "card-blue": "#2F5FD0", "card-gold": "#B8892B", "card-black": "#4B5563", "card-silver": "#4B5563", "card-green": "#2E7D5B",
+    "card-red": "#B4443A", "card-purple": "#6B3FA0", "wallet-purple": "#6B3FA0", "wallet-teal": "#2C8AAE", "wallet-blue": "#2F5FD0" };
+  const srcColor = (s) => (s.icon && s.icon.startsWith("#") ? s.icon : LEGACY[s.icon]) || SRC_COLOR_DEFAULT[s.kind] || "#4B5563";
+  const srcShape = (kind, c) => {
+    if (kind === "yape") return `<rect x="8" y="0.5" width="12" height="19" rx="2.5" fill="${c}"/><rect x="10.3" y="3" width="7.4" height="11" rx="1" fill="#fff" fill-opacity=".85"/>`;
+    if (kind === "account" || kind === "other") return `<path d="M3 8 14 1.5 25 8" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/><path d="M6 9.5v6.5M11 9.5v6.5M17 9.5v6.5M22 9.5v6.5M3 18.5h22" stroke="${c}" stroke-width="2" stroke-linecap="round"/>`;
+    if (kind === "cash") return `<rect x="0.5" y="3.5" width="27" height="13" rx="2" fill="${c}"/><circle cx="14" cy="10" r="3" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.6"/>`;
+    return `<rect x="0.5" y="0.5" width="27" height="19" rx="3" fill="${c}"/><rect x="0.5" y="4.5" width="27" height="3.5" fill="#000" fill-opacity=".22"/><rect x="4" y="11.5" width="6" height="4" rx="1" fill="#fff" fill-opacity=".8"/>`;
   };
-  const SRC_DEFAULT = { yape: "wallet-purple", debit: "card-blue", credit: "card-silver", account: "bank", cash: "cash", other: "bank" };
-  const srcIcon = (src) => src ? (SRC_STYLES[src.icon] || SRC_STYLES[SRC_DEFAULT[src.kind] || "bank"]) : "";
+  function srcIcon(src, cls) {
+    if (!src) return "";
+    if (src.image) return `<img class="src-ic ${cls || ""}" src="${esc(src.image)}" alt="">`;
+    return `<svg class="src-ic ${cls || ""}" viewBox="0 0 28 20" aria-hidden="true">${srcShape(src.kind, srcColor(src))}</svg>`;
+  }
 
-  function monthLabel(ym) {
+  function monthLabel(ym, withYear) {
     const [y, m] = ym.split("-").map(Number);
     const name = L.months[m - 1];
     const cap = name.charAt(0).toUpperCase() + name.slice(1);
-    return y === new Date().getFullYear() ? cap : `${cap} ${y}`;
+    return withYear || y !== new Date().getFullYear() ? `${cap} ${y}` : cap;
   }
   function whenLabel(ts) {
     const d = new Date(ts.replace(" ", "T"));
@@ -149,6 +154,7 @@
         case "settings": return await settings(rest[0]);
         case "email": return await emailReview(decodeURIComponent(rest.join("/")));
         case "import": return await importPage();
+        case "source": return await sourcePage(Number(rest[0]));
         default: return await home();
       }
     } catch (e) { console.error(e); fail(e); }
@@ -156,17 +162,10 @@
 
   // ---------------------------------------------------------------- inicio
   async function home() {
-    const d = await call("home", { ym });
+    const [d, cats] = await Promise.all([call("home", { ym }), call("categories")]);
     ym = d.ym;
     const delta = d.prevTotal > 0 ? Math.round(((d.total - d.prevTotal) / d.prevTotal) * 100) : null;
     const prevName = L.months[Number(d.prevYm.split("-")[1]) - 1];
-    const max = Math.max(d.fixed, d.variable, 1);
-    const groupRow = (key, amount, n) => `
-      <a class="row" href="#list/${key}">
-        <span class="name" style="flex:1"><b>${esc(t(key))}</b><small>${esc(n === 1 ? t("payments_1") : t("payments_n", { n }))}</small>
-          <span class="bar" style="display:block;width:100%"><i style="width:${(100 * amount) / max}%"></i></span></span>
-        <span class="amt num">${money(amount)}</span>
-      </a>`;
     let body;
     if (!d.hasData) {
       body = `
@@ -176,30 +175,123 @@
           <a class="btn" href="#import">${esc(t("import_yape"))}</a>
         </div>`;
     } else {
+      const slices = catSlices(d.cats, cats);
+      const sum = slices.reduce((a, x) => a + x.total, 0) || 1;
+      const maxCat = Math.max(1, ...slices.map((x) => x.total));
+      const catRow = (x, i) => `
+        <a class="catline" href="${x.href}" data-s="${i}">${catIcon(x.id)}
+          <span class="cl-main"><span class="cl-top"><span class="${x.id === null ? "muted" : ""}">${esc(x.name)}</span><span class="num cl-amt">${money(x.total)}</span></span>
+          <span class="cl-bar"><i style="width:${(100 * x.total) / maxCat}%;background:${x.color}"></i></span></span></a>`;
+      const SHOW = 6;
       body = `
         <div class="hero">
-          <div class="hero-month">${esc(d.nextYm ? t("spent_in", { m: monthLabel(d.ym) }) : t("spent_this_month", { m: monthLabel(d.ym) }))}</div>
+          <div class="hero-label">${esc(d.nextYm ? t("spent_in", { m: monthLabel(d.ym) }) : t("spent_this_month_plain"))}</div>
           <div class="total num">${money(d.total)}</div>
-          <div class="sub">${delta !== null ? `<span class="${delta > 0 ? "up" : "down"}">${Math.abs(delta)}% ${esc(delta > 0 ? t("more") : t("less"))}</span> ${esc(t("than_in", { m: prevName }))}` : esc(t("spent"))}</div>
+          <div class="sub">${delta !== null ? `<span class="${delta > 0 ? "up" : "down"}">${Math.abs(delta)}% ${esc(delta > 0 ? t("more") : t("less"))}</span> ${esc(t("than_in", { m: prevName }))}` : ""}</div>
         </div>
+        ${d.count ? `<div class="fv">
+          <a href="#list/fixed"><small>${esc(t("fixed"))} · ${d.fixedN}</small><b class="num">${money(d.fixed)}</b></a>
+          <a href="#list/variable"><small>${esc(t("variable"))} · ${d.variableN}</small><b class="num">${money(d.variable)}</b></a>
+        </div>` : `<p class="empty">${esc(t("empty_month"))}</p>`}
         ${d.pending ? `<a class="todo" href="#pending"><span>${esc(d.pending === 1 ? t("pending_1") : t("pending_n", { n: d.pending }))}</span>${ICON.right}</a>` : ""}
-        <div class="split">
-          ${d.count ? groupRow("fixed", d.fixed, d.fixedN) + groupRow("variable", d.variable, d.variableN) : `<p class="empty">${esc(t("empty_month"))}</p>`}
-        </div>
+        ${slices.length ? `
+          <h2>${esc(t("where_it_went"))}</h2>
+          <div class="pie home-pie">${donut(slices, sum)}<div class="pie-c"><b class="num" id="pv">${money(d.total)}</b><small id="pn">${esc(t("total"))}</small></div></div>
+          <div>${slices.slice(0, SHOW).map(catRow).join("")}</div>
+          ${slices.length > SHOW ? `<div id="morecats" hidden>${slices.slice(SHOW).map((x, i) => catRow(x, i + SHOW)).join("")}</div>
+            <button class="link-inline" id="showcats">${esc(t("see_all_cats", { n: slices.length }))}</button>` : ""}` : ""}
+        ${d.top && d.top.length ? `
+          <h2>${esc(t("biggest"))}</h2>
+          <div>${d.top.map((x, i) => `
+            <button class="row" data-top="${i}">
+              <span class="name" style="flex:1"><b>${esc(x.who)}${x.description ? `<span class="muted" style="font-weight:400"> · ${esc(x.description)}</span>` : ""}</b>
+                <small class="srcline">${esc(catName(x.categoryId, cats))} · ${srcIcon(x.src, "xs")}${esc(srcLabel(x, true))}</small></span>
+              <span class="amt num">${money(x.amountPen ?? x.amount)}</span>
+            </button>`).join("")}</div>` : ""}
         ${d.count ? `<a class="more" href="#list/all">${esc(t("see_all"))}</a>` : ""}
         ${d.nextYm ? `<button class="more" id="now">${esc(t("back_to_now"))}</button>` : ""}`;
+      setTimeout(() => {
+        const sc = $("#showcats");
+        if (sc) sc.addEventListener("click", () => { $("#morecats").hidden = false; sc.remove(); });
+        pieTaps(slices);
+        app().querySelectorAll("[data-top]").forEach((b) => b.addEventListener("click", () => {
+          const el = document.createElement("div");
+          const close = sheet("");
+          $(".sheet").appendChild(el);
+          editor(el, d.top[Number(b.dataset.top)], cats, { onDone: () => { close(); home(); } });
+        }));
+      });
     }
     app().innerHTML = topBar(`
       <div class="month">
-        <button data-m="${d.prevYm}" aria-label="prev">${ICON.left}</button>
-        <span>${esc(monthLabel(d.ym))}</span>
-        <button data-m="${d.nextYm || ""}" ${d.nextYm ? "" : "disabled"} aria-label="next">${ICON.right}</button>
+        <button data-m="${d.prevYm}" aria-label="${esc(t("prev_month"))}">${ICON.left}</button>
+        <span>${esc(monthLabel(d.ym, true))}</span>
+        <button data-m="${d.nextYm || ""}" ${d.nextYm ? "" : "disabled"} aria-label="${esc(t("next_month"))}">${ICON.right}</button>
       </div>`) + body;
     app().querySelectorAll("[data-m]").forEach((b) => b.addEventListener("click", () => { if (b.dataset.m) { ym = b.dataset.m; home(); } }));
     const now = $("#now");
     if (now) now.addEventListener("click", () => { ym = null; home(); });
     document.body.classList.toggle("past", !!d.nextYm);
     if (d.noDesc > 0) maybeTip(d.noDesc);
+  }
+
+  const catName = (id, cats) => id == null ? t("unclassified") : ((cats.find((c) => c.id === id) || {}).name || t("unclassified"));
+  // Trozos de la dona. El color sigue a la categoría (su lugar en la lista de categorías), no a su tamaño.
+  function catSlices(totals, cats) {
+    return (totals || []).map((b) => {
+      if (b.id == null) return { id: null, name: t("unclassified"), total: b.total, color: "var(--s-other)", href: "#list/none" };
+      const k = cats.findIndex((c) => c.id === b.id);
+      return { id: b.id, name: b.name, total: b.total, color: k >= 0 && k < 8 ? `var(--s${k + 1})` : "var(--s-other)", href: "#list/cat:" + b.id };
+    });
+  }
+  // Tocar un trozo: muestra su nombre y monto al centro.
+  function pieTaps(slices) {
+    app().querySelectorAll("[data-slice]").forEach((p) => p.addEventListener("click", () => {
+      const x = slices[Number(p.dataset.slice)];
+      app().querySelectorAll("[data-slice]").forEach((q) => q.classList.toggle("on", q === p));
+      $("#pv").textContent = money(x.total); $("#pn").textContent = x.name;
+    }));
+  }
+
+  // ---------------------------------------------------------------- la fuente: el correo tal cual llegó
+  async function sourcePage(txId) {
+    app().innerHTML = `<header class="top"><button class="back" id="sback">${ICON.left}<span>${esc(t("back"))}</span></button></header>
+      <h1 style="margin-bottom:4px">${esc(t("source_title"))}</h1><p class="muted" id="smeta">${esc(t("loading_email"))}</p><div id="sbody"></div>`;
+    $("#sback").addEventListener("click", () => history.back());
+    let d;
+    try { d = await call("email.source", { txId }); } catch (e) {
+      $("#smeta").textContent = String(e.message || "").startsWith("auth") || String(e.message || "").startsWith("connect") ? t("source_offline") : t("source_missing");
+      return;
+    }
+    const gmail = d.gmailUrl ? `<a class="btn" href="${esc(d.gmailUrl)}" target="_blank" rel="noopener">${esc(t("open_in_gmail"))}</a>` : "";
+    if (!d.html) {
+      $("#smeta").textContent = t("source_missing");
+      $("#sbody").innerHTML = gmail ? `<div class="actions" style="grid-template-columns:1fr">${gmail}</div>` : "";
+      return;
+    }
+    $("#smeta").textContent = t("source_hint");
+    let images = false;
+    const paint = () => {
+      // Visor aislado: sin scripts, sin formularios y, salvo que lo pidas, sin cargar nada de internet.
+      const csp = `default-src 'none'; style-src 'unsafe-inline'; img-src data: ${images ? "https: http:" : ""}; font-src data:`;
+      const doc = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}">
+        <base target="_blank"><style>html,body{margin:0;background:#fff}${images ? "" : "img:not([src^='data:']){visibility:hidden}"}</style></head><body>${d.html}</body></html>`;
+      $("#sbody").innerHTML = `<div class="mailbar"><button class="btn" id="simg">${esc(images ? t("hide_images") : t("show_images"))}</button>${gmail}</div>
+        <div class="mailframe"><iframe id="sframe" sandbox="allow-same-origin" referrerpolicy="no-referrer" title="${esc(t("source_title"))}"></iframe></div>`;
+      const f = $("#sframe");
+      f.addEventListener("load", () => {
+        // Los correos suelen medir 600px: se achican para que entren completos en la pantalla del celular.
+        const de = f.contentDocument && f.contentDocument.documentElement;
+        if (!de) return;
+        const w = Math.max(de.scrollWidth, f.contentDocument.body ? f.contentDocument.body.scrollWidth : 0);
+        const z = w > f.clientWidth + 2 ? f.clientWidth / w : 1;
+        if (z < 1) de.style.zoom = String(z);
+        f.style.height = Math.ceil(de.scrollHeight * z) + 16 + "px";
+      });
+      f.srcdoc = doc;
+      $("#simg").addEventListener("click", () => { images = !images; paint(); });
+    };
+    paint();
   }
 
   // Consejo (no tarea): escribir el mensaje al yapear, porque después nadie se acuerda. Máximo una vez por semana.
@@ -222,25 +314,16 @@
     const backHref = group.startsWith("cat:") || group === "none" ? "#list/variable" : "#";
     let breakdown = "";
     if (d.breakdown) {
-      // Dona de categorías. El color sigue a la categoría (su posición en la lista), no al tamaño del trozo.
-      const slices = d.breakdown.map((b) => {
-        const k = cats.findIndex((c) => c.id === b.id);
-        return { id: b.id, name: b.name, total: b.total, color: k >= 0 && k < 8 ? `var(--s${k + 1})` : "var(--s-other)", href: "#list/cat:" + b.id };
-      });
-      if (d.unclassified) slices.push({ id: null, name: t("unclassified"), total: d.unclassified.total, color: "var(--s-other)", href: "#list/none" });
+      const slices = catSlices(d.breakdown.concat(d.unclassified ? [{ id: null, total: d.unclassified.total }] : []), cats);
       const sum = slices.reduce((a, x) => a + x.total, 0) || 1;
       breakdown = `<div class="pie">${donut(slices, sum)}<div class="pie-c"><b class="num" id="pv">${money(d.total)}</b><small id="pn">${esc(t("variable"))}</small></div></div>` +
         slices.map((x, i) => `
-        <a class="row ${x.id === null ? "dim" : ""}" href="${x.href}" data-s="${i}"><i class="dot" style="background:${x.color}"></i>
-          <span class="name" style="flex:1"><b ${x.id === null ? 'style="font-weight:500"' : ""}>${esc(x.name)}</b></span>
-          <span class="muted num" style="font-size:.85rem">${Math.round((100 * x.total) / sum)}%</span>
-          <span class="amt num">${money(x.total)}</span></a>`).join("");
+        <a class="catline" href="${x.href}" data-s="${i}">${catIcon(x.id)}
+          <span class="cl-main"><span class="cl-top"><span class="${x.id === null ? "muted" : ""}">${esc(x.name)}</span>
+            <span><span class="muted cl-pct">${Math.round((100 * x.total) / sum)}%</span> <span class="num cl-amt">${money(x.total)}</span></span></span>
+          <span class="cl-bar"><i style="width:${(100 * x.total) / sum}%;background:${x.color}"></i></span></span></a>`).join("");
       breakdown = `<div>${breakdown}</div><h2>${esc(t("all_expenses"))}</h2>`;
-      setTimeout(() => app().querySelectorAll("[data-slice]").forEach((p) => p.addEventListener("click", () => {
-        const x = slices[Number(p.dataset.slice)];
-        app().querySelectorAll("[data-slice]").forEach((q) => q.classList.toggle("on", q === p));
-        $("#pv").textContent = money(x.total); $("#pn").textContent = x.name;
-      })));
+      setTimeout(() => pieTaps(slices));
     }
     app().innerHTML = backBar(backHref, group.startsWith("cat:") || group === "none" ? t("variable") : monthLabel(d.ym)) + `
       <div class="hero-month">${esc(monthLabel(d.ym))}</div>
@@ -293,7 +376,7 @@
       a0 = a1;
       return `<path data-slice="${i}" d="${d}" fill="${x.color}"/>`;
     }).join("");
-    return `<svg viewBox="0 0 200 200" class="pie-svg" role="img" aria-label="${esc(t("variable"))}">${paths}</svg>`;
+    return `<svg viewBox="0 0 200 200" class="pie-svg" role="img" aria-label="${esc(t("where_it_went"))}">${paths}</svg>`;
   }
 
   function addCash() {
@@ -325,19 +408,26 @@
     const summary = () => [catName(), fixed ? t("fixed_one") : t("variable_one"),
       x.installments > 1 ? t("n_installments", { n: x.installments }) : ""].filter(Boolean).join(" · ");
     const excluded = x.status === "excluded";
+    // La categoría va primero (lo más importante); el resto, al lado y más suave.
+    const tagHtml = () => `${catIcon(cat)}<b>${esc(catName() || t("no_category"))}</b><span class="muted">· ${esc([fixed ? t("fixed_one") : t("variable_one"),
+      x.installments > 1 ? t("n_installments", { n: x.installments }) : ""].filter(Boolean).join(" · "))}</span>`;
 
     el.innerHTML = `
       <div class="ed">
         ${opts.count ? `<div class="ed-count">${esc(opts.count)}</div>` : ""}
         <div class="ed-head">
+          <div class="ed-sub">${esc(whenLabel(x.when))}${x.installment ? " · " + esc(t("installment", { k: x.installment })) : ""}</div>
           <div class="ed-amount num" data-amount>${money(x.amount, x.currency)}</div>
           ${x.currency === "USD" ? `<div class="ed-sub">≈ ${money(x.amountPen)}</div>` : ""}
           <button class="ed-who" data-rename><span data-name>${esc(x.who)}</span> ${ICON.pencil}</button>
-          <div class="ed-sub">${esc(whenLabel(x.when))}${x.installment ? " · " + esc(t("installment", { k: x.installment })) : ""}</div>
-          ${x.src && x.src.kind !== "other" || (x.src && x.src.bank) ? `<div class="ed-src">${srcIcon(x.src)}<span>${esc(t("paid_with"))} <b>${esc(srcLabel(x))}</b>${x.ref ? ` · ${esc(t("op"))} ${esc(x.ref)}` : ""}</span></div>` : ""}
-          <button class="ed-tag" data-more-toggle>${esc(summary())}</button>
-          ${x.mailUrl ? `<a class="ed-mail" href="${esc(x.mailUrl)}" target="_blank" rel="noopener">${ICON.mail}<span>${esc(t("see_email"))}</span></a>` : ""}
+          <button class="ed-tag" data-more-toggle>${tagHtml()}</button>
         </div>
+        ${x.src ? `<div class="src-box">
+          <div class="sb-main">${srcIcon(x.src, "lg")}
+            <span><small>${esc(t("paid_with"))}</small><b>${esc(srcLabel(x))}</b>${x.src.name ? `<small>${esc(srcLabel({ src: { ...x.src, name: null } }))}</small>` : ""}</span></div>
+          ${x.ref || x.source === "email" ? `<div class="sb-foot"><span>${x.ref ? `${esc(t("operation"))} <b class="num">${esc(x.ref)}</b>` : ""}</span>
+            ${x.source === "email" ? `<a class="sb-link" href="#source/${x.id}">${esc(t("see_source"))} ${ICON.right}</a>` : ""}</div>` : ""}
+        </div>` : ""}
         <label class="ed-field">${esc(t("description"))}
           <input class="ed-input" data-desc placeholder="${esc(t("desc_example"))}" value="${esc(x.description)}" autocomplete="off" enterkeyhint="done">
         </label>
@@ -364,7 +454,7 @@
 
     const q = (s) => el.querySelector(s);
     const qa = (s) => el.querySelectorAll(s);
-    const refreshTag = () => qa(".ed-tag").forEach((b) => { b.textContent = summary(); });
+    const refreshTag = () => qa(".ed-tag").forEach((b) => { b.innerHTML = tagHtml(); });
 
     // Renombrar el receptor (se aplica a todos sus pagos).
     q("[data-rename]").addEventListener("click", () => {
@@ -606,23 +696,42 @@
     if (sub === "ai") return aiPage(s, back);
     if (sub === "sources") {
       const list = await call("sources");
+      const full = (x) => srcLabel({ src: { ...x, name: null } });
       app().innerHTML = back + `<h1>${esc(t("sources_title"))}</h1><p class="muted">${esc(t("sources_hint"))}</p>` +
         list.map((x, i) => `<div class="srcrow">
-          <button class="srcpick" data-pick="${i}" aria-label="${esc(t("change_icon"))}">${srcIcon(x)}</button>
-          <span class="name" style="flex:1;min-width:0"><input value="${esc(x.name || "")}" placeholder="${esc(srcLabel({ src: { ...x, name: null } }))}" data-name="${i}">
-            <small class="muted">${esc(x.n === 1 ? t("payments_1") : t("payments_n", { n: x.n }))}</small></span>
-          <div class="srcgrid" data-grid="${i}" hidden>${Object.keys(SRC_STYLES).map((k) =>
-            `<button class="${(x.icon || SRC_DEFAULT[x.kind]) === k ? "on" : ""}" data-icon="${k}">${SRC_STYLES[k]}</button>`).join("")}</div></div>`).join("");
-      app().querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => {
-        const g = app().querySelector(`[data-grid="${b.dataset.pick}"]`); g.hidden = !g.hidden;
+          <button class="srchead" data-open="${i}">${srcIcon(x, "lg")}
+            <span class="name" style="flex:1;min-width:0"><b>${esc(x.name || full(x))}</b><small>${esc((x.name ? full(x) + " · " : "") + (x.n === 1 ? t("payments_1") : t("payments_n", { n: x.n })))}</small></span>${ICON.down}</button>
+          <div class="srcedit" data-edit="${i}" hidden>
+            <label>${esc(t("src_name"))}</label><input value="${esc(x.name || "")}" placeholder="${esc(full(x))}" data-name="${i}" maxlength="30">
+            <label>${esc(t("src_color"))}</label>
+            <div class="swatches" role="radiogroup" aria-label="${esc(t("src_color"))}">${SRC_COLORS.map((c) =>
+              `<button role="radio" aria-checked="${!x.image && srcColor(x) === c}" aria-label="${c}" data-color="${c}" style="background:${c}"></button>`).join("")}</div>
+            <label>${esc(t("src_image"))}</label>
+            <div class="imgpick">${x.image ? `<img src="${esc(x.image)}" alt=""><button class="btn" data-noimg="${i}">${esc(t("remove"))}</button>`
+              : `<label class="btn filebtn">${esc(t("upload_image"))}<input type="file" accept="image/*,.svg" data-img="${i}" hidden></label>`}</div>
+            <p class="note">${esc(t("src_image_hint"))}</p>
+          </div></div>`).join("");
+      const save = (i, patch) => call("source.save", { key: list[i].key, ...patch }).then(() => settings("sources").then(() => {
+        const e = app().querySelector(`[data-edit="${i}"]`); if (e) e.hidden = false;
+      })).catch(fail);
+      app().querySelectorAll("[data-open]").forEach((b) => b.addEventListener("click", () => {
+        const e = app().querySelector(`[data-edit="${b.dataset.open}"]`); e.hidden = !e.hidden;
       }));
-      app().querySelectorAll("[data-grid]").forEach((g) => g.querySelectorAll("[data-icon]").forEach((b) => b.addEventListener("click", async () => {
-        const x = list[Number(g.dataset.grid)];
-        await call("source.save", { key: x.key, icon: b.dataset.icon }).catch(fail);
-        settings("sources");
-      })));
+      app().querySelectorAll("[data-edit]").forEach((e) => {
+        const i = Number(e.dataset.edit);
+        e.querySelectorAll("[data-color]").forEach((b) => b.addEventListener("click", () => save(i, { icon: b.dataset.color, image: "" })));
+      });
       app().querySelectorAll("[data-name]").forEach((inp) => inp.addEventListener("change", () =>
         call("source.save", { key: list[Number(inp.dataset.name)].key, name: inp.value }).catch(fail)));
+      app().querySelectorAll("[data-noimg]").forEach((b) => b.addEventListener("click", () => save(Number(b.dataset.noimg), { image: "" })));
+      app().querySelectorAll("[data-img]").forEach((inp) => inp.addEventListener("change", () => {
+        const f = inp.files && inp.files[0];
+        if (!f) return;
+        if (f.size > 250000) return toast(t("image_too_big"));
+        const r = new FileReader();
+        r.onload = () => save(Number(inp.dataset.img), { image: String(r.result) });
+        r.readAsDataURL(f);
+      }));
       return;
     }
     if (sub === "words") {

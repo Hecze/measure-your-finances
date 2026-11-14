@@ -100,6 +100,32 @@ object Imap {
 
     private const val BATCH = 25
 
+    /** Un solo correo por su Message-ID (para "Ver la fuente" de correos leídos antes de guardar el original). */
+    fun fetchOne(host: String, user: String, password: String, messageId: String): IncomingEmail? {
+        val props = Properties().apply {
+            put("mail.store.protocol", "imaps"); put("mail.imaps.host", host); put("mail.imaps.port", "993")
+            put("mail.imaps.ssl.enable", "true"); put("mail.imaps.connectiontimeout", "20000"); put("mail.imaps.timeout", "60000")
+        }
+        val store = Session.getInstance(props).getStore("imaps")
+        try {
+            store.connect(host, user, password)
+        } catch (e: javax.mail.AuthenticationFailedException) {
+            throw ImapException("auth|" + (e.message ?: "").take(200))
+        } catch (e: javax.mail.MessagingException) {
+            throw ImapException("connect|" + (e.message ?: e.cause?.message ?: "").take(200))
+        }
+        try {
+            val folder = allMailFolder(store)
+            folder.open(Folder.READ_ONLY)
+            val m = folder.search(javax.mail.search.HeaderTerm("Message-ID", messageId)).firstOrNull()
+            val r = m?.let { toIncoming(it, messageId) }
+            folder.close(false)
+            return r
+        } finally {
+            store.close()
+        }
+    }
+
     /** En Gmail, "Todos" (\All) incluye lo archivado. Si no existe, INBOX. */
     private fun allMailFolder(store: javax.mail.Store): Folder {
         try {

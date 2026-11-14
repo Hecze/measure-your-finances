@@ -10,6 +10,9 @@ import java.util.Base64
 interface Storage {
     fun load(): String?
     fun save(json: String)
+    /** Correo original (HTML tal cual llegó), para "Ver la fuente". Aparte del JSON de datos. */
+    fun saveMail(id: String, html: String) {}
+    fun loadMail(id: String): String? = null
 }
 
 /** Contraseñas y API keys: fuera del JSON de datos (Android: almacenamiento cifrado). */
@@ -43,6 +46,7 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
             // Lo que usa la red va sin el candado de datos tomado (la app no se congela).
             val data = when (method) {
                 "sync" -> syncEmail()
+                "email.source" -> emailSource(args.getLong("txId"))
                 "ai.run" -> aiRun()
                 "ai.test" -> { Ai.test(ledger.data.settings, secrets.get("ai") ?: throw Exception("Falta la API key")); "ok" }
                 else -> synchronized(lock) { dispatch(method, args) }
@@ -128,6 +132,10 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
         "source.save" -> {
             val key = a.getString("key")
             if (a.has("icon")) a.optString("icon").takeIf { it.isNotBlank() }?.let { ledger.data.sourceIcons[key] = it } ?: ledger.data.sourceIcons.remove(key)
+            if (a.has("image")) a.optString("image").takeIf { it.startsWith("data:image/") }?.let {
+                require(it.length <= 400_000) { "image_too_big" }
+                ledger.data.sourceImages[key] = it
+            } ?: ledger.data.sourceImages.remove(key)
             if (a.has("name")) a.optString("name").trim().take(30).takeIf { it.isNotBlank() }?.let { ledger.data.sourceNames[key] = it } ?: ledger.data.sourceNames.remove(key)
             mutated()
         }
@@ -211,6 +219,7 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
         val key = "$kind:$bank:$last4"
         return JSONObject().put("key", key).put("kind", kind).put("bank", bank).put("last4", last4)
             .put("icon", ledger.data.sourceIcons[key] ?: JSONObject.NULL).put("name", ledger.data.sourceNames[key] ?: JSONObject.NULL)
+            .put("image", ledger.data.sourceImages[key] ?: JSONObject.NULL)
     }
 
     /** Medios de pago detectados (tarjetas, Yape, cuentas), con cuántos pagos tiene cada uno. */
@@ -257,6 +266,18 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
             .put("count", rows.size).put("pending", q.length())
             .put("noDesc", rows.count { it.counterpartyType == "person" && it.description.isBlank() })
             .put("hasEmail", hasEmail()).put("hasData", ledger.data.txs.isNotEmpty())
+            .put("cats", byCategory(rows))
+            .put("top", JSONArray(rows.sortedByDescending { ledger.pen(it) }.take(3).map { txView(it) }))
+    }
+
+    /** En qué se fue: total por categoría (todas, fijas y variables), de mayor a menor; sin clasificar al final. */
+    private fun byCategory(rows: List<Tx>): JSONArray {
+        val byCat = rows.groupBy { it.categoryId }
+        val out = ledger.data.categories.mapNotNull { c ->
+            byCat[c.id]?.let { JSONObject().put("id", c.id).put("name", c.name).put("total", it.sumOf { t -> ledger.pen(t) }).put("n", it.size) }
+        }.sortedByDescending { it.getDouble("total") }.toMutableList()
+        byCat[null]?.let { out += JSONObject().put("id", JSONObject.NULL).put("total", it.sumOf { t -> ledger.pen(t) }).put("n", it.size) }
+        return JSONArray(out)
     }
 
     private fun list(ymStr: String?, group: String): JSONObject {
@@ -362,6 +383,26 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
     private data class Quad<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
 
     /** Lee Gmail: descarga sin candado, procesa con candado. */
+    private fun sourceHtml(m: IncomingEmail): String =
+        m.html.ifBlank { "<pre style=\"white-space:pre-wrap;font:14px sans-serif\">" + m.text.replace("&", "&amp;").replace("<", "&lt;") + "</pre>" }
+
+    /**
+     * El correo original de un gasto, tal cual llegó. Si no está guardado (correos leídos con versiones
+     * anteriores), se baja de Gmail en ese momento, solo ese correo.
+     */
+    fun emailSource(txId: Long): JSONObject {
+        val (emailId, s) = synchronized(lock) { ledger.data.txs.firstOrNull { it.id == txId }?.emailId to ledger.data.settings }
+        if (emailId == null) throw Exception("no_source")
+        val o = JSONObject().put("gmailUrl", mailUrl(emailId) ?: JSONObject.NULL)
+        storage.loadMail(emailId)?.let { return o.put("html", it) }
+        val pass = secrets.get("imap")
+        if (s.email.isBlank() || pass.isNullOrBlank()) return o.put("html", JSONObject.NULL)
+        val m = Imap.fetchOne(s.imapHost, s.email, pass, emailId) ?: return o.put("html", JSONObject.NULL)
+        val html = sourceHtml(m)
+        runCatching { storage.saveMail(emailId, html) }
+        return o.put("html", html)
+    }
+
     fun syncEmail(onProgress: (Int, Int) -> Unit = { _, _ -> }): JSONObject {
         val pass = secrets.get("imap")
         val (s, known) = synchronized(lock) { ledger.data.settings to ledger.data.emails.keys.toSet() }
@@ -369,6 +410,7 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
         var newExp = 0; var unknown = 0; var imported = 0
         // Cada tanda se procesa y se guarda apenas llega (si se corta a la mitad, lo leído queda).
         val onBatch: (List<IncomingEmail>) -> Unit = { batch ->
+            batch.forEach { m -> runCatching { storage.saveMail(m.messageId, sourceHtml(m)) } }
             synchronized(lock) {
                 for (m in batch) {
                     val r = ledger.processEmail(m, refresh = false)
