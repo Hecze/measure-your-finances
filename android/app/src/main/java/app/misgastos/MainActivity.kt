@@ -103,12 +103,13 @@ class MainActivity : ComponentActivity() {
 
     /** "Abrir con" / "Compartir" un Excel de Yape: se lee y se manda a la pantalla de importar. */
     private fun handleIntent(intent: Intent?) {
-        val uri: Uri? = when (intent?.action) {
+        val shared: Uri? = when (intent?.action) {
             Intent.ACTION_VIEW -> intent.data
             Intent.ACTION_SEND -> if (android.os.Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
                 else @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_STREAM)
             else -> null
-        } ?: return
+        }
+        val uri: Uri = shared ?: return
         bg.execute {
             val bytes = runCatching { contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull() ?: return@execute
             val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
