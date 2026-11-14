@@ -217,7 +217,7 @@
           <div class="total num">${money(d.total)}</div>
           <div class="sub">${delta !== null ? `<span class="${delta > 0 ? "up" : "down"}">${Math.abs(delta)}% ${esc(delta > 0 ? t("more") : t("less"))}</span> ${esc(t("than_in", { m: prevName }))}` : ""}</div>
         </div>
-        ${d.pending ? `<a class="todo" href="#pending"><span>${esc(d.pending === 1 ? t("pending_1") : t("pending_n", { n: d.pending }))}</span>${ICON.right}</a>` : ""}
+        ${d.pending ? `<a class="todo-line" href="#pending">${ICON.pencil}<span>${esc(d.pending === 1 ? t("pending_1") : t("pending_n", { n: d.pending }))}</span>${ICON.right}</a>` : ""}
         <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${homeTab === k}" data-tab="${k}">${esc(l)}</button>`).join("")}</div>
         <div id="pane">${panes[homeTab] || panes.cats}</div>
         ${d.nextYm ? `<button class="more" id="now">${esc(t("back_to_now"))}</button>` : ""}`;
@@ -274,41 +274,58 @@
 
   // ---------------------------------------------------------------- la fuente: el correo tal cual llegó
   async function sourcePage(txId) {
-    app().innerHTML = `<header class="top"><button class="back" id="sback">${ICON.left}<span>${esc(t("back"))}</span></button></header>
-      <h1 style="margin-bottom:4px">${esc(t("source_title"))}</h1><p class="muted" id="smeta">${esc(t("loading_email"))}</p><div id="sbody"></div>`;
+    app().innerHTML = `<header class="top"><button class="back" id="sback">${ICON.left}<span>${esc(t("back"))}</span></button></header><div id="sbox"></div>`;
     $("#sback").addEventListener("click", () => history.back());
+    mountSource($("#sbox"), txId);
+  }
+
+  // El correo original, tal cual, dentro de "box". Mientras carga muestra un esqueleto del mismo alto
+  // para que la pantalla no salte.
+  async function mountSource(box, txId) {
+    box.innerHTML = `<div class="src-head"><b>${esc(t("source_title"))}</b><span class="muted">${esc(t("source_hint"))}</span></div>
+      <div class="skeleton" aria-busy="true" aria-label="${esc(t("loading_email"))}">
+        <i style="width:55%"></i><i style="width:35%"></i><i class="blk"></i><i style="width:80%"></i><i style="width:70%"></i><i style="width:75%"></i><i style="width:60%"></i><i class="blk"></i><i style="width:40%"></i></div>`;
+    const q = (sel) => box.querySelector(sel);
     let d;
     try { d = await call("email.source", { txId }); } catch (e) {
-      $("#smeta").textContent = String(e.message || "").startsWith("auth") || String(e.message || "").startsWith("connect") ? t("source_offline") : t("source_missing");
+      const m = String(e.message || "");
+      q(".skeleton").outerHTML = `<p class="muted">${esc(m.startsWith("auth") || m.startsWith("connect") ? t("source_offline") : t("source_missing"))}</p>`;
       return;
     }
     const gmail = d.gmailUrl ? `<a class="btn" href="${esc(d.gmailUrl)}" target="_blank" rel="noopener">${esc(t("open_in_gmail"))}</a>` : "";
     if (!d.html) {
-      $("#smeta").textContent = t("source_missing");
-      $("#sbody").innerHTML = gmail ? `<div class="actions" style="grid-template-columns:1fr">${gmail}</div>` : "";
+      q(".skeleton").outerHTML = `<p class="muted">${esc(t("source_missing"))}</p>${gmail ? `<div class="mailbar one">${gmail}</div>` : ""}`;
       return;
     }
-    $("#smeta").textContent = t("source_hint");
     let images = true;
     const paint = () => {
-      // Visor aislado: sin scripts, sin formularios y, salvo que lo pidas, sin cargar nada de internet.
+      // Visor aislado: sin scripts ni formularios. Las imágenes del banco se pueden ocultar.
       const csp = `default-src 'none'; style-src 'unsafe-inline'; img-src data: ${images ? "https: http:" : ""}; font-src data:`;
       const doc = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}">
         <base target="_blank"><style>html,body{margin:0;background:#fff}${images ? "" : "img:not([src^='data:']){visibility:hidden}"}</style></head><body>${d.html}</body></html>`;
-      $("#sbody").innerHTML = `<div class="mailbar"><button class="btn" id="simg">${esc(images ? t("hide_images") : t("show_images"))}</button>${gmail}</div>
-        <div class="mailframe"><iframe id="sframe" sandbox="allow-same-origin" referrerpolicy="no-referrer" title="${esc(t("source_title"))}"></iframe></div>`;
-      const f = $("#sframe");
+      const prev = q(".src-body");
+      const html = `<div class="mailframe ${prev ? "" : "loading"}"><iframe sandbox="allow-same-origin" referrerpolicy="no-referrer" title="${esc(t("source_title"))}"></iframe></div>
+        <div class="mailbar"><button class="btn" data-simg>${esc(images ? t("hide_images") : t("show_images"))}</button>${gmail}</div>`;
+      const wrap = document.createElement("div"); wrap.className = "src-body"; wrap.innerHTML = html;
+      // Primera vez: el esqueleto se queda visible hasta que el correo esté listo y ajustado al ancho.
+      const skel = q(".skeleton");
+      if (prev) { wrap.querySelector("iframe").style.height = prev.querySelector("iframe").style.height; prev.replaceWith(wrap); }
+      else skel.after(wrap);
+      const f = wrap.querySelector("iframe");
       f.addEventListener("load", () => {
         // Los correos suelen medir 600px: se achican para que entren completos en la pantalla del celular.
         const de = f.contentDocument && f.contentDocument.documentElement;
-        if (!de) return;
-        const w = Math.max(de.scrollWidth, f.contentDocument.body ? f.contentDocument.body.scrollWidth : 0);
-        const z = w > f.clientWidth + 2 ? f.clientWidth / w : 1;
-        if (z < 1) de.style.zoom = String(z);
-        f.style.height = Math.ceil(de.scrollHeight * z) + 16 + "px";
+        if (de) {
+          const w = Math.max(de.scrollWidth, f.contentDocument.body ? f.contentDocument.body.scrollWidth : 0);
+          const z = w > f.clientWidth + 2 ? f.clientWidth / w : 1;
+          if (z < 1) de.style.zoom = String(z);
+          f.style.height = Math.ceil(de.scrollHeight * z) + 16 + "px";
+        }
+        const sk = q(".skeleton"); if (sk) sk.remove();
+        wrap.querySelector(".mailframe").classList.remove("loading");
       });
       f.srcdoc = doc;
-      $("#simg").addEventListener("click", () => { images = !images; paint(); });
+      wrap.querySelector("[data-simg]").addEventListener("click", () => { images = !images; paint(); });
     };
     paint();
   }
@@ -447,8 +464,8 @@
         ${x.src ? `<div class="src-box">
           <a class="sb-main" href="#settings/sources">${srcIcon(x.src, "lg")}
             <span><small>${esc(t("paid_with"))}</small><b>${esc(srcLabel(x))}</b>${x.src.name ? `<small>${esc(srcLabel({ src: { ...x.src, name: null } }))}</small>` : ""}</span><span class="sb-edit">${esc(t("edit"))}</span></a>
-          ${x.ref || x.source === "email" ? `<div class="sb-foot"><span>${x.ref ? `${esc(t("operation"))} <b class="num">${esc(x.ref)}</b>` : ""}</span>
-            ${x.source === "email" ? `<a class="sb-link" href="#source/${x.id}">${esc(t("see_source"))} ${ICON.right}</a>` : ""}</div>` : ""}
+          ${x.ref ? `<div class="sb-foot"><span>${x.ref ? `${esc(t("operation"))} <b class="num">${esc(x.ref)}</b>` : ""}</span>
+</div>` : ""}
         </div>` : ""}
         <label class="ed-field">${esc(t("description"))}
           <input class="ed-input" data-desc placeholder="${esc(t("desc_example"))}" value="${esc(x.description)}" autocomplete="off" enterkeyhint="done">
@@ -472,10 +489,13 @@
             `<option value="${n}" ${n === (x.installments || 1) ? "selected" : ""}>${esc(n === 1 ? t("single_payment") : t("n_installments", { n }))}</option>`).join("")}</select>` : ""}
           ${!excluded ? `<button class="link danger" data-never>${esc(t("never_count", { who: x.who }))}</button>` : ""}
         </div>
+        ${x.source === "email" ? `<section class="ed-source" data-source></section>` : ""}
       </div>`;
 
     const q = (s) => el.querySelector(s);
     const qa = (s) => el.querySelectorAll(s);
+    // La fuente se carga sola debajo, sin tener que tocar nada.
+    if (q("[data-source]")) mountSource(q("[data-source]"), x.id);
     const refreshTag = () => qa(".ed-tag").forEach((b) => { b.innerHTML = tagHtml(); });
 
     // Renombrar el receptor (se aplica a todos sus pagos).
