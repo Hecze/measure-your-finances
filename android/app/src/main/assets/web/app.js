@@ -110,6 +110,24 @@
     return `<svg class="src-ic ${cls || ""}" viewBox="0 0 28 20" aria-hidden="true">${srcShape(src.kind, srcColor(src))}</svg>`;
   }
 
+  // Fila de gasto en dos columnas, sin cortar nada:
+  //   izquierda: quién / descripción / fecha (o categoría)   ·   derecha: monto / con qué se pagó
+  function txRow(x, attrs, opts) {
+    const o = opts || {};
+    const third = o.category ? `${catIcon(x.categoryId)}${esc(o.category)}` : esc(whenShort(x.when));
+    const extra = [x.installment ? t("installment", { k: x.installment }) : "", x.currency === "USD" ? money(x.amount, "USD") : ""].filter(Boolean).join(" · ");
+    return `<button class="row txrow ${x.status === "excluded" ? "off" : ""}" ${attrs}>${o.icon === false ? "" : catIcon(x.categoryId)}
+      <span class="tx-l"><b>${esc(x.who)}</b>${x.description ? `<span class="tx-desc">${esc(x.description)}</span>` : ""}<small>${third}</small></span>
+      <span class="tx-r"><span class="amt num">${money(x.amountPen ?? x.amount)}</span>
+        <small>${srcIcon(x.src, "xs")}${esc(srcLabel(x, true))}</small>${extra ? `<small>${esc(extra)}</small>` : ""}</span>
+    </button>`;
+  }
+  function whenShort(ts) {
+    const d = new Date(String(ts).replace(" ", "T"));
+    if (isNaN(d)) return ts;
+    return `${d.getDate()} ${L.months[d.getMonth()].slice(0, 3)} · ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
+
   function monthLabel(ym, withYear) {
     const [y, m] = ym.split("-").map(Number);
     const name = L.months[m - 1];
@@ -193,11 +211,7 @@
           <p class="pie-cap" id="pcap">${esc(t("tap_slice"))}</p>
           <div>${slices.map(catRow).join("")}</div>` : `<p class="empty">${esc(t("empty_month"))}</p>`,
         top: (d.top || []).length ? `<div>${d.top.map((x, i) => `
-            <button class="row" data-top="${i}">
-              <span class="name" style="flex:1"><b>${esc(x.who)}${x.description ? `<span class="muted" style="font-weight:400"> · ${esc(x.description)}</span>` : ""}</b>
-                <small class="srcline">${catIcon(x.categoryId)}${esc(catName(x.categoryId, cats))} · ${srcIcon(x.src, "xs")}${esc(srcLabel(x, true))}</small></span>
-              <span class="amt num">${money(x.amountPen ?? x.amount)}</span>
-            </button>`).join("")}</div>
+            ${txRow(x, `data-top="${i}"`, { icon: false, category: catName(x.categoryId, cats) })}`).join("")}</div>
           <a class="more" href="#list/all">${esc(t("see_all"))}</a>` : `<p class="empty">${esc(t("empty_month"))}</p>`,
         details: `
           <div class="fv">
@@ -372,11 +386,7 @@
     const order = d.items.map((x, i) => ({ x, i }));
     const counted = order.filter((o) => o.x.status !== "excluded").sort((a, b) => (b.x.amountPen ?? b.x.amount) - (a.x.amountPen ?? a.x.amount));
     const excluded = order.filter((o) => o.x.status === "excluded").sort((a, b) => (b.x.amountPen ?? b.x.amount) - (a.x.amountPen ?? a.x.amount));
-    const itemRow = ({ x, i }) => `
-        <button class="row ${x.status === "excluded" ? "off" : ""}" data-i="${i}">${catIcon(x.categoryId)}
-          <span class="name" style="flex:1"><b>${esc(x.who)}</b><small>${srcIcon(x.src)}${esc([srcLabel(x, true), x.installment ? t("installment", { k: x.installment }) : "", x.description || whenLabel(x.when), x.currency === "USD" ? money(x.amount, "USD") : ""].filter(Boolean).join(" · "))}</small></span>
-          <span class="amt num">${money(x.amountPen ?? x.amount)}</span>
-        </button>`;
+    const itemRow = ({ x, i }) => txRow(x, `data-i="${i}"`);
     const box = $("#items");
     if (!d.items.length) box.innerHTML = `<p class="empty">${esc(t("empty_month"))}</p>`;
     else if (counted.length + excluded.length <= 7) box.innerHTML = counted.concat(excluded).map(itemRow).join("");
@@ -595,11 +605,7 @@
     // Por revisar: una lista normal. Nada es obligatorio; se toca lo que se quiera.
     const items = await call("queue");
     const txs = items.filter((i) => i.kind === "tx");
-    const rowTx = (x) => `
-      <button class="row" data-id="${x.id}">${catIcon(x.categoryId)}
-        <span class="name" style="flex:1"><b>${esc(x.who)}</b><small>${srcIcon(x.src)}${esc([srcLabel(x, true), x.description || whenLabel(x.when)].filter(Boolean).join(" · "))}</small></span>
-        <span class="amt num">${money(x.amountPen ?? x.amount)}</span>
-      </button>`;
+    const rowTx = (x) => txRow(x, `data-id="${x.id}"`);
     app().innerHTML = backBar("#", monthLabel(ym || new Date().toISOString().slice(0, 7))) + `
       <h1>${esc(t("to_review"))}</h1>
       ${items.filter((i) => i.kind === "yape").map((i) => `
