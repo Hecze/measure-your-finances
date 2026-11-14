@@ -757,6 +757,12 @@
             <div class="imgpick">${x.image ? `<img src="${esc(x.image)}" alt=""><button class="btn" data-noimg="${i}">${esc(t("remove"))}</button>`
               : `<label class="btn filebtn">${esc(t("upload_image"))}<input type="file" accept="image/*,.svg" data-img="${i}" hidden></label>`}</div>
             <p class="note">${esc(t("src_image_hint"))}</p>
+            ${list.length > 1 ? `<label>${esc(t("src_same_as"))}</label>
+              <select data-merge="${i}"><option value="">${esc(t("src_same_none"))}</option>${list.filter((y) => y.key !== x.key).map((y) =>
+                `<option value="${esc(y.key)}">${esc(y.name || full(y))}</option>`).join("")}</select>
+              <p class="note">${esc(t("src_same_hint"))}</p>` : ""}
+            ${(x.merged || []).map((m) => `<div class="merged">${srcIcon(m, "xs")}<span>${esc(t("src_includes", { x: full(m) }))}</span>
+              <button class="link-inline" data-split="${esc(m.key)}">${esc(t("src_split"))}</button></div>`).join("")}
           </div></div>`).join("");
       const save = (i, patch) => call("source.save", { key: list[i].key, ...patch }).then(() => settings("sources").then(() => {
         const e = app().querySelector(`[data-edit="${i}"]`); if (e) e.hidden = false;
@@ -768,8 +774,20 @@
         const i = Number(e.dataset.edit);
         e.querySelectorAll("[data-color]").forEach((b) => b.addEventListener("click", () => save(i, { icon: b.dataset.color, image: "" })));
       });
-      app().querySelectorAll("[data-name]").forEach((inp) => inp.addEventListener("change", () =>
-        call("source.save", { key: list[Number(inp.dataset.name)].key, name: inp.value }).catch(fail)));
+      app().querySelectorAll("[data-name]").forEach((inp) => {
+        const i = Number(inp.dataset.name);
+        const head = app().querySelector(`[data-open="${i}"] .name b`);
+        // El título se actualiza mientras escribes; se guarda al dar Enter o al salir del campo.
+        inp.addEventListener("input", () => { head.textContent = inp.value.trim() || full(list[i]); });
+        inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } });
+        inp.addEventListener("change", () => call("source.save", { key: list[i].key, name: inp.value }).then(() => { list[i].name = inp.value.trim() || null; }).catch(fail));
+      });
+      app().querySelectorAll("[data-merge]").forEach((sel) => sel.addEventListener("change", () => {
+        if (!sel.value) return;
+        call("source.save", { key: list[Number(sel.dataset.merge)].key, mergeInto: sel.value }).then(() => settings("sources")).catch(fail);
+      }));
+      app().querySelectorAll("[data-split]").forEach((b) => b.addEventListener("click", () =>
+        call("source.save", { key: b.dataset.split, mergeInto: "" }).then(() => settings("sources")).catch(fail)));
       app().querySelectorAll("[data-noimg]").forEach((b) => b.addEventListener("click", () => save(Number(b.dataset.noimg), { image: "" })));
       app().querySelectorAll("[data-img]").forEach((inp) => inp.addEventListener("change", () => {
         const f = inp.files && inp.files[0];

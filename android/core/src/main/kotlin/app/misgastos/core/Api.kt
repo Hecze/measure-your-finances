@@ -137,6 +137,8 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
                 require(it.length <= 400_000) { "image_too_big" }
                 ledger.data.sourceImages[key] = it
             } ?: ledger.data.sourceImages.remove(key)
+            if (a.has("mergeInto")) a.optString("mergeInto").takeIf { it.isNotBlank() && it != key }?.let { ledger.data.sourceMerge[key] = it }
+                ?: ledger.data.sourceMerge.remove(key)
             if (a.has("name")) a.optString("name").trim().take(30).takeIf { it.isNotBlank() }?.let { ledger.data.sourceNames[key] = it } ?: ledger.data.sourceNames.remove(key)
             mutated()
         }
@@ -199,7 +201,7 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
     }
 
     /** De dónde salió la plata: yape | credit | debit | account | cash | other, el banco y los 4 últimos dígitos. */
-    fun sourceOf(t: Tx): Triple<String, String, String> {
+    private fun rawSource(t: Tx): Triple<String, String, String> {
         val d = Text.stripAccents(t.accountDetail.lowercase())
         val last4 = Regex("\\*+\\s*(\\d{4})").find(t.accountDetail)?.groupValues?.get(1) ?: ""
         val kind = when {
@@ -211,6 +213,38 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
             else -> "other"
         }
         return Triple(kind, t.account, last4)
+    }
+
+    // Tarjetas de débito por banco (para unir "Cuenta BCP" con la única tarjeta de débito BCP). Se recalcula si cambian los datos.
+    private var debitCache: Pair<Int, Map<String, Set<String>>>? = null
+    private fun debitCards(): Map<String, Set<String>> {
+        val n = ledger.data.txs.size
+        debitCache?.takeIf { it.first == n }?.let { return it.second }
+        val m = ledger.data.txs.map { rawSource(it) }.filter { it.first == "debit" && it.third.isNotEmpty() }
+            .groupBy({ it.second }, { it.third }).mapValues { it.value.toSet() }
+        debitCache = n to m
+        return m
+    }
+
+    /**
+     * De dónde salió la plata. La tarjeta de débito descuenta de la cuenta, así que si en ese banco hay
+     * UNA sola tarjeta de débito, las transferencias desde "la cuenta" cuentan como esa misma tarjeta.
+     * Con varias tarjetas de débito no se adivina cuál es: quedan como "Cuenta".
+     */
+    private fun autoSource(t: Tx): Triple<String, String, String> {
+        val r = rawSource(t)
+        if (r.first == "account") debitCards()[r.second]?.singleOrNull()?.let { return Triple("debit", r.second, it) }
+        return r
+    }
+
+    private fun keyOf(s: Triple<String, String, String>) = "${s.first}:${s.second}:${s.third}"
+    private fun fromKey(k: String): Triple<String, String, String> = k.split(":", limit = 3).let { Triple(it[0], it.getOrElse(1) { "" }, it.getOrElse(2) { "" }) }
+
+    /** Además, lo que el usuario marcó como "es el mismo que…". */
+    fun sourceOf(t: Tx): Triple<String, String, String> {
+        val a = autoSource(t)
+        val target = ledger.data.sourceMerge[keyOf(a)] ?: return a
+        return fromKey(target)
     }
 
     fun sourceKey(t: Tx): String = sourceOf(t).let { (k, b, l) -> "$k:$b:$l" }
@@ -227,7 +261,10 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
     private fun sources(): JSONArray {
         val outs = ledger.data.txs.filter { it.direction == "out" && it.status != "excluded" }
         return JSONArray(outs.groupBy { sourceKey(it) }.entries.sortedByDescending { it.value.size }.map { (_, list) ->
-            srcJson(list.first()).put("n", list.size)
+            // Los que el usuario unió a este (para poder separarlos).
+            val merged = list.map { autoSource(it) }.filter { keyOf(it) != sourceKey(list.first()) }.distinct()
+            srcJson(list.first()).put("n", list.size).put("merged", JSONArray(merged.map { m ->
+                JSONObject().put("key", keyOf(m)).put("kind", m.first).put("bank", m.second).put("last4", m.third) }))
         })
     }
 

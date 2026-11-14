@@ -195,6 +195,8 @@ class AppData {
     val sourceNames: MutableMap<String, String> = mutableMapOf()
     /** Imagen propia del usuario para un medio de pago (data URL), p. ej. el logo de su billetera. */
     val sourceImages: MutableMap<String, String> = mutableMapOf()
+    /** Medios de pago que el usuario marcó como el mismo (clave -> clave destino). */
+    val sourceMerge: MutableMap<String, String> = mutableMapOf()
     /** contraparte normalizada -> fijo/variable elegido por el usuario */
     val fixedMemory: MutableMap<String, Boolean> = mutableMapOf()
     /** Mis palabras (explícitas). Por defecto: "sencillo" y "monedas" son cambio de efectivo. */
@@ -235,7 +237,7 @@ class AppData {
         .put("fixedMemory", JSONObject(fixedMemory as Map<*, *>))
         .put("aliases", JSONObject(aliases as Map<*, *>))
         .put("sourceIcons", JSONObject(sourceIcons as Map<*, *>)).put("sourceNames", JSONObject(sourceNames as Map<*, *>))
-        .put("sourceImages", JSONObject(sourceImages as Map<*, *>))
+        .put("sourceImages", JSONObject(sourceImages as Map<*, *>)).put("sourceMerge", JSONObject(sourceMerge as Map<*, *>))
         .put("seeded", JSONArray(seeded.sorted()))
         .put("glossary", JSONArray(glossary.map { it.toJson() }))
         .put("settings", settings.toJson())
@@ -266,6 +268,7 @@ class AppData {
             o.optJSONObject("sourceIcons")?.let { m -> m.keys().forEach { k -> d.sourceIcons[k] = m.getString(k) } }
             o.optJSONObject("sourceNames")?.let { m -> m.keys().forEach { k -> d.sourceNames[k] = m.getString(k) } }
             o.optJSONObject("sourceImages")?.let { m -> m.keys().forEach { k -> d.sourceImages[k] = m.getString(k) } }
+            o.optJSONObject("sourceMerge")?.let { m -> m.keys().forEach { k -> d.sourceMerge[k] = m.getString(k) } }
             // Datos de versiones anteriores: las categorías existentes cuentan como ya creadas.
             o.optJSONArray("seeded")?.let { a -> for (i in 0 until a.length()) d.seeded += a.getLong(i) }
                 ?: d.categories.filter { it.id in 100L..106L }.forEach { d.seeded += it.id }
