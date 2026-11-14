@@ -1,0 +1,55 @@
+name: android
+
+on:
+  push:
+    branches: ["main", "claude/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Tests del núcleo
+        working-directory: android
+        run: gradle --no-daemon :core:test
+
+      - name: Compilar APK
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 0.1.${{ github.run_number }}
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: Preparar archivo
+        run: cp android/app/build/outputs/apk/release/app-release.apk mis-gastos.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mis-gastos-apk
+          path: mis-gastos.apk
+
+      - name: Publicar descarga
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: Mis Gastos (última versión)
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+          files: mis-gastos.apk
+          body: |
+            APK de Mis Gastos compilado desde ${{ github.sha }}.
+            Descárgalo en tu Android y ábrelo para instalar (acepta "instalar apps de fuentes desconocidas").
