@@ -5,7 +5,7 @@
   // ---------------------------------------------------------------- puente
   const waiting = {};
   let seq = 0;
-  function call(method, args) {
+  function rawCall(method, args) {
     if (window.AndroidBridge) {
       return new Promise((resolve, reject) => {
         const id = ++seq;
@@ -15,6 +15,33 @@
     }
     return fetch("/api/" + method, { method: "POST", body: JSON.stringify(args || {}) })
       .then((r) => r.text()).then(unwrap);
+  }
+
+  // Respuesta visual mientras algo carga: barra fina arriba y, en el botón tocado, un circulito.
+  // Solo aparece si tarda más de 150 ms (lo instantáneo no parpadea).
+  let pendingCalls = 0, barTimer = null, lastTap = null;
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("button, a.btn, a.row, a.catline");
+    lastTap = b ? { el: b, at: Date.now() } : null;
+  }, true);
+  function call(method, args) {
+    const quiet = method === "sync" || method === "email.source" || method.startsWith("native.");
+    const btn = lastTap && Date.now() - lastTap.at < 80 && lastTap.el.matches("button, a.btn") ? lastTap.el : null;
+    if (!quiet) {
+      pendingCalls++;
+      if (!barTimer) barTimer = setTimeout(() => document.body.classList.add("loading"), 150);
+    }
+    const btnTimer = btn ? setTimeout(() => btn.classList.add("is-loading"), 150) : null;
+    const done = () => {
+      if (btnTimer) clearTimeout(btnTimer);
+      if (btn) btn.classList.remove("is-loading");
+      if (!quiet && --pendingCalls <= 0) {
+        pendingCalls = 0; clearTimeout(barTimer); barTimer = null; document.body.classList.remove("loading");
+      }
+    };
+    const p = rawCall(method, args);
+    p.then(done, done);
+    return p;
   }
   function unwrap(text) {
     const r = JSON.parse(text);
@@ -176,8 +203,16 @@
   async function render() {
     const [route, ...rest] = location.hash.slice(1).split("/");
     document.querySelectorAll(".sheet-bg").forEach((e) => e.remove()); // una hoja nunca sobrevive a un cambio de pantalla
-    window.scrollTo(0, 0);
     try {
+      await page(route, rest);
+      // Transición suave: la pantalla nueva aparece cuando ya está lista (sin saltos ni parpadeos).
+      window.scrollTo(0, 0);
+      const a = app(); a.classList.remove("enter"); void a.offsetWidth; a.classList.add("enter");
+    } catch (e) { console.error(e); fail(e); }
+  }
+
+  async function page(route, rest) {
+    {
       switch (route) {
         case "": case "home": return await home();
         case "pending": return await pending();
@@ -189,7 +224,7 @@
         case "source": return await sourcePage(Number(rest[0]));
         default: return await home();
       }
-    } catch (e) { console.error(e); fail(e); }
+    }
   }
 
   // ---------------------------------------------------------------- inicio
@@ -262,7 +297,8 @@
         app().querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
           homeTab = b.dataset.tab;
           app().querySelectorAll("[data-tab]").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
-          $("#pane").innerHTML = panes[homeTab];
+          const pn = $("#pane"); pn.innerHTML = panes[homeTab];
+          pn.classList.remove("enter"); void pn.offsetWidth; pn.classList.add("enter");
           wire();
         }));
       });
@@ -978,7 +1014,11 @@
     bg.className = "sheet-bg";
     bg.innerHTML = `<div class="sheet"><div class="grab"></div>${html}</div>`;
     document.body.appendChild(bg);
-    const close = () => { bg.remove(); setTimeout(flushRefresh, 50); };
+    const close = () => {
+      if (bg.classList.contains("out")) return;
+      bg.classList.add("out");
+      setTimeout(() => { bg.remove(); flushRefresh(); }, 200);
+    };
     bg.addEventListener("click", (e) => {
       if (e.target.closest("[data-close]")) return close();
       // Al cerrarse el teclado la hoja se mueve: un toque justo después no debe caer en el fondo y cerrarla.

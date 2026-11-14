@@ -305,3 +305,36 @@ h2 { font-size: .95rem; text-transform: none; letter-spacing: 0; color: var(--te
 .merged span { flex: 1; }
 .merged .link-inline { padding: 8px 0; }
 .srcedit select { margin-top: 0; }
+
+/* ===== respuesta al tocar, carga y transiciones ===== */
+button, a { transition: background-color .12s, opacity .12s, transform .12s; }
+.btn:active, .tabs button:active, .todo-line:active, .link:active, .link-inline:active, .more:active { opacity: .6; }
+.btn.primary:active { opacity: .85; transform: scale(.98); }
+.row:active, .catline:active, .srchead:active, .option:active, .sb-main:active { background: var(--soft); }
+.row, .catline, .srchead { border-radius: 8px; }
+.iconbtn:active, .back:active, .month button:active { background: var(--soft); }
+/* barra fina de carga arriba */
+body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 60; pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, var(--accent) 45%, var(--accent) 55%, transparent 100%); background-size: 40% 100%;
+  background-repeat: no-repeat; opacity: 0; transition: opacity .2s; }
+body.loading::before { opacity: 1; animation: loadbar 1s ease-in-out infinite; }
+@keyframes loadbar { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+/* botón cargando: un circulito en lugar del texto */
+.btn.is-loading { position: relative; color: transparent !important; pointer-events: none; }
+.btn.is-loading::after { content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%; border: 2px solid currentColor;
+  border-color: var(--muted) transparent var(--muted) transparent; animation: spin .7s linear infinite; }
+.btn.primary.is-loading::after { border-color: #fff transparent #fff transparent; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* pantallas y hojas */
+#app.enter { animation: pagein .22s ease-out; }
+@keyframes pagein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.sheet-bg { animation: fadein .2s ease-out; }
+.sheet-bg .sheet { animation: sheetup .24s cubic-bezier(.2,.8,.2,1); }
+.sheet-bg.out { animation: fadeout .2s ease-in forwards; }
+.sheet-bg.out .sheet { animation: sheetdown .2s ease-in forwards; }
+@keyframes fadein { from { background: rgba(0,0,0,0); } }
+@keyframes fadeout { to { background: rgba(0,0,0,0); } }
+@keyframes sheetup { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes sheetdown { to { transform: translateY(100%); } }
+#pane.enter { animation: pagein .18s ease-out; }
+@media (prefers-reduced-motion: reduce) { #app.enter, .sheet-bg, .sheet-bg .sheet, #pane.enter { animation: none !important; } }
