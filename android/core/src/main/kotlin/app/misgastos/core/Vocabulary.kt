@@ -62,7 +62,12 @@ object Vocabulary {
         ),
         FUN to listOf(
             "cine", "pelicula", "película", "entrada", "entradas", "concierto", "fiesta", "tono", "discoteca", "bar", "chela", "chelas",
-            "cerveza", "cervezas", "trago", "tragos", "ron", "pisco", "vino", "salida", "juego", "juegos", "bowling", "karaoke",
+            "cerveza", "cervezas", "trago", "tragos", "ron", "pisco", "vino", "salida",
+            // Bebidas alcohólicas conocidas (marcas sin otro significado común)
+            "mike", "mikes", "mike's", "four loko", "fourloko", "four lokos", "loko", "pilsen", "cusquena", "cusqueña", "heineken",
+            "stella", "budweiser", "michelob", "smirnoff", "vodka", "whisky", "whiskey", "tequila", "gin", "jager", "jagermeister",
+            "chilcano", "chilcanos", "pisco sour", "cuba libre", "sangria", "sangría", "cartavio", "queirolo", "tabernero",
+            "johnnie walker", "chivas", "baileys", "anis", "anís", "caneca", "six pack", "sixpack", "cerveceria", "juego", "juegos", "bowling", "karaoke",
             "cumpleaños", "cumple", "regalo", "regalos", "paseo", "cinemark", "cineplanet", "cinestar", "teleticket", "joinnus", "netflix", "spotify", "disney", "youtube", "steam", "playstation",
         ),
         SHOPPING to listOf(

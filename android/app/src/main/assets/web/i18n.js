@@ -71,6 +71,11 @@ window.I18N = {
     tip_text: "Tienes {n} pagos a personas sin descripción. Sin eso no sabemos si fue comida, pasaje o un favor.",
     tip_small: "Tip: cuando yapees, escribe siempre el mensaje. Si se te olvida, complétalo aquí.",
     later: "Luego", complete: "Completar", error: "Algo salió mal",
+    words: "Mis palabras", words_title: "Mis palabras",
+    words_hint: "Tú decides qué significa cada palabra. Solo se aplica si la descripción contiene exactamente esa palabra.",
+    word: "Palabra", means: "Significa", not_expense_cash: "No es gasto (cambio de efectivo)", add: "Agregar",
+    always_word: "Siempre que diga “{w}”", always_word_not: "Siempre que diga “{w}”, no contarlo",
+    words_empty: "Aún no agregaste palabras.",
   },
   en: {
     months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
@@ -143,5 +148,10 @@ window.I18N = {
     tip_text: "You have {n} payments to people with no description. Without it we can't tell food from a bus fare or a favor.",
     tip_small: "Tip: always write the message when you pay with Yape. If you forget, fill it in here.",
     later: "Later", complete: "Fill in", error: "Something went wrong",
+    words: "My words", words_title: "My words",
+    words_hint: "You decide what each word means. It only applies when the description contains exactly that word.",
+    word: "Word", means: "Means", not_expense_cash: "Not an expense (cash exchange)", add: "Add",
+    always_word: "Whenever it says “{w}”", always_word_not: "Whenever it says “{w}”, don't count it",
+    words_empty: "No words yet.",
   },
 };

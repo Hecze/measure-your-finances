@@ -154,15 +154,30 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
         }
     }
 
+    /** Entrada de "Mis palabras" que aparece como palabra (o frase) completa en el texto. */
+    fun glossaryFor(text: String): GlossaryEntry? {
+        val hay = " " + norm(text) + " "
+        return data.glossary.filter { norm(it.word).isNotEmpty() && hay.contains(" " + norm(it.word) + " ") }
+            .maxByOrNull { norm(it.word).length } // la frase más específica gana
+    }
+
+    /** "sencillo", "monedas"...: el usuario dijo que nunca son gasto. Solo afecta pendientes (no pisa lo que el usuario decidió). */
+    private fun applyGlossaryExclusion(t: Tx) {
+        if (t.direction != "out" || t.status != "pending" || t.description.isBlank()) return
+        val g = glossaryFor(t.description) ?: return
+        if (g.notExpense) {
+            t.status = "excluded"
+            t.excludeReason = g.reason.ifEmpty { "glossary" }
+        }
+    }
+
     fun categoryFromText(t: Tx): Pair<Long?, String> {
         val key = counterpartyKey(t.counterparty)
         if (t.counterpartyType != "person") data.memory[key]?.let { return it to "auto" }
         if (t.description.isNotBlank()) {
-            // Lo aprendido del usuario pesa más que el vocabulario.
-            val score = mutableMapOf<Long, Double>()
-            for (w in Vocabulary.tokens(t.description)) data.wordMemory[w]?.forEach { (cat, n) -> score[cat] = (score[cat] ?: 0.0) + n * 3 }
-            Vocabulary.guess(t.description)?.let { data.categoryIdForDefault(it) }?.let { score[it] = (score[it] ?: 0.0) + 2 }
-            score.maxByOrNull { it.value }?.let { return it.key to "auto" }
+            // Mis palabras (explícitas) mandan sobre el vocabulario.
+            glossaryFor(t.description)?.categoryId?.let { return it to "auto" }
+            Vocabulary.guess(t.description)?.let { data.categoryIdForDefault(it) }?.let { return it to "auto" }
         }
         if (t.counterpartyType == "person") data.memory[key]?.let { return it to "auto" }
         if (t.counterpartyType != "person") {
@@ -186,7 +201,7 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
 
     // ================================================================ sugerencias
     private val NOT_EXPENSE_WORDS = listOf(
-        "sencillo", "monedas", "cambio", "vuelto", "efectivo", "devolucion", "presto", "prestamo", "te devuelvo", "encargo", "para que",
+        "cambio", "vuelto", "efectivo", "devolucion", "presto", "prestamo", "te devuelvo", "encargo", "para que",
         "de parte de", "pasame", "deposito", "me diste", "me dio", "le debo", "adelanto",
     )
 
@@ -229,6 +244,7 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
     }
 
     fun refreshAll() {
+        data.txs.forEach { applyGlossaryExclusion(it) }
         reclassify()
         data.txs.forEach { refreshFlags(it) }
     }
@@ -335,7 +351,8 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
 
     /** Pendientes: lo que necesita al usuario. Lo dudoso primero; luego pagos a personas sin descripción (45 días). */
     fun queue(): List<Tx> {
-        val since = Text.fmt(now().minusDays(45))
+        // Solo se piden descripciones desde el mes actual: lo anterior ya pasó y no se pregunta.
+        val since = Text.fmt(now().withDayOfMonth(1).toLocalDate().atStartOfDay())
         val pend = data.txs.filter { it.direction == "out" && it.status == "pending" }.sortedByDescending { it.occurredAt }
         val flagged = pend.filter { t -> t.flags.any { it in REVIEW_FLAGS } }
         val noDesc = pend.filter { it !in flagged && it.counterpartyType == "person" && it.description.isBlank() && it.occurredAt >= since }
@@ -363,7 +380,8 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
 
     /** Cambios del usuario sobre un gasto. Aprende cuando corresponde. */
     fun update(id: Long, description: String? = null, categoryId: Long? = null, clearCategory: Boolean = false,
-               fixed: Boolean? = null, status: String? = null, excludeReason: String? = null, remember: Boolean = false) {
+               fixed: Boolean? = null, status: String? = null, excludeReason: String? = null, remember: Boolean = false,
+               rememberWord: Boolean = false) {
         val t = data.txs.firstOrNull { it.id == id } ?: return
         val key = counterpartyKey(t.counterparty)
         description?.let {
@@ -376,9 +394,9 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
         if (categoryId != null && data.categories.any { it.id == categoryId }) {
             t.categoryId = categoryId
             t.categorySource = "user"
-            // Aprender: palabras de la descripción y, para comercios, la contraparte.
-            for (w in Vocabulary.tokens(t.description)) data.wordMemory.getOrPut(w) { mutableMapOf() }.merge(categoryId, 1, Int::plus)
+            // Para comercios se recuerda la contraparte (siempre es el mismo tipo de gasto).
             if ((t.counterpartyType != "person" || remember) && key.isNotEmpty()) data.memory[key] = categoryId
+            if (rememberWord) addGlossary(t.description, categoryId, false, "")
         }
         fixed?.let {
             t.fixed = it
@@ -389,12 +407,21 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
             if (st in setOf("pending", "confirmed", "excluded")) {
                 t.status = st
                 t.excludeReason = if (st == "excluded") excludeReason.orEmpty() else ""
+                if (st == "excluded" && rememberWord) addGlossary(t.description, null, true, excludeReason.orEmpty())
                 if (st == "excluded" && remember && t.counterparty.isNotBlank()) {
                     data.notCounted += NotCountedRule(stripWallet(t.counterparty).ifEmpty { t.counterparty }, excludeReason ?: "")
                 }
             }
         }
         refreshAll()
+    }
+
+    /** Agrega (o reemplaza) una entrada de "Mis palabras" con el texto tal cual lo escribió el usuario. */
+    fun addGlossary(word: String, categoryId: Long?, notExpense: Boolean, reason: String) {
+        val w = word.trim()
+        if (w.isEmpty()) return
+        data.glossary.removeIf { norm(it.word) == norm(w) }
+        data.glossary += GlossaryEntry(w, categoryId, notExpense, reason)
     }
 
     /** Resultados de la IA: solo se aplican a lo que el usuario no decidió. */

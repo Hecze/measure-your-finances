@@ -7,7 +7,7 @@ App Android open source para saber **cuánto gastas y en qué**, leyendo los cor
 ## Qué hace
 
 - **Un número**: lo que gastaste este mes, separado en **Fijos** (alquiler, universidad, plan de celular) y **Variables**.
-- **Pendientes, de a uno**: "¿En qué fue?", Fijo/Variable, categoría, y *Listo* o *No es gasto*.
+- **Pendientes, de a uno**: "¿En qué fue?", Fijo/Variable, categoría, y *Listo* o *No es gasto*. Solo se piden descripciones de los pagos del mes actual.
 - **No adivina.** Cada tipo de correo tiene una plantilla exacta. Si llega uno que no reconoce, te pregunta.
 - **Mide gastos, no ingresos.** Tú decides qué no cuenta: cambio de efectivo, encargos, pases de dinero, transferencias a tus propias cuentas.
 - **Español e inglés** (Ajustes → Idioma).
@@ -26,10 +26,10 @@ App Android open source para saber **cuánto gastas y en qué**, leyendo los cor
 
 1. **Fijo o variable**: pagos de servicios, palabras como "alquiler" o "mensualidad", o el mismo pago repetido 3+ meses con monto parecido.
 2. **En qué fue** (para lo variable):
-   - vocabulario peruano ("1/4 + 1l de chicha" → Comida, "pasaje mall" → Transporte);
-   - lo que **tú le enseñas**: cada descripción que categorizas le enseña esas palabras;
-   - lo usual con cada persona (si lo de Sonia siempre fue comida, se sugiere comida);
-   - **IA opcional** con la API key de tu proveedor (Claude, OpenAI, Gemini, Groq, OpenRouter, DeepSeek o cualquier compatible). Si la IA tampoco entiende ("enanita"), te pregunta.
+   - vocabulario peruano ("1/4 + 1l de chicha" → Comida, "pasaje mall" → Transporte, "mike" o "fourloko" → Salidas);
+   - **Mis palabras** (Ajustes): tú dices qué significa una palabra ("enanita" = Comida) y solo se aplica cuando la descripción contiene exactamente esa palabra. Nada se deduce por su cuenta. Por defecto, "sencillo" y "monedas" son cambio de efectivo y no se cuentan;
+   - lo usual con cada persona (si lo de Sonia siempre fue comida, se sugiere comida, marcado como sugerencia);
+   - **IA opcional** con la API key de tu proveedor (Claude, OpenAI, Gemini, Groq, OpenRouter, DeepSeek o cualquier compatible). Si la IA tampoco entiende, te pregunta.
 3. **¿Es realmente un gasto?** Señales, nunca decisiones automáticas:
    - "X te envió S/150 un minuto antes": ¿pagaste por él?
    - "Esta persona también te envía dinero": ¿encargo?

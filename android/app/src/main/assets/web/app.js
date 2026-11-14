@@ -224,6 +224,7 @@
             <input data-desc placeholder="${esc(t("what_for"))}" value="${esc(x.description)}" autocomplete="off" enterkeyhint="done">
             <div class="seg"><button data-fx="1" class="${fixed ? "on" : ""}">${esc(t("fixed_one"))}</button><button data-fx="0" class="${fixed ? "" : "on"}">${esc(t("variable_one"))}</button></div>
             <div class="chips">${cats.map((c) => `<button class="chip ${c.id === cat ? "on" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("")}</div>
+            <label class="check" data-wordbox hidden><input type="checkbox" data-word> <span data-wordlabel></span></label>
             ${x.categorySource === "persona" && cat === x.categoryId ? `<div class="note">${esc(t("suggested_person"))}</div>` : ""}
             ${x.categorySource === "ia" && cat === x.categoryId ? `<div class="note">${esc(t("suggested_ai"))}</div>` : ""}
           </div>
@@ -235,11 +236,24 @@
             <p class="muted" style="margin:24px 0 0">${esc(t("why_not"))}</p>
             <div class="chips">${["reason_cash", "reason_pass", "reason_own", "reason_loan"].map((r) => `<button class="chip" data-reason="${r}">${esc(t(r))}</button>`).join("")}</div>
             <label class="check"><input type="checkbox" data-remember> ${esc(t("never_count", { who: x.who }))}</label>
+            <label class="check" data-wordbox2 hidden><input type="checkbox" data-word2> <span data-wordlabel2></span></label>
             <button class="link" data-cancel>${esc(t("cancel"))}</button>
           </div>
           ${opts.skip ? `<button class="link" data-skip>${esc(t("skip"))}</button>` : ""}
         </div>`;
       const q = (s) => el.querySelector(s);
+      // "Siempre que diga ..." solo para descripciones cortas (una palabra o frase breve).
+      const shortWord = () => { const d = q("[data-desc]").value.trim(); return d && d.split(/\s+/).length <= 3 ? d : ""; };
+      const syncWord = () => {
+        const w = shortWord();
+        q("[data-wordbox]").hidden = !w || cat === null;
+        q("[data-wordlabel]").textContent = t("always_word", { w });
+        q("[data-wordbox2]").hidden = !w;
+        q("[data-wordlabel2]").textContent = t("always_word_not", { w });
+      };
+      q("[data-desc]").addEventListener("input", syncWord);
+      el.querySelectorAll("[data-cat]").forEach((b) => b.addEventListener("click", () => setTimeout(syncWord)));
+      syncWord();
       el.querySelectorAll("[data-cat]").forEach((b) => b.addEventListener("click", () => {
         const id = Number(b.dataset.cat);
         cat = cat === id ? null : id;
@@ -254,6 +268,7 @@
         const args = { id: x.id, status: "confirmed", description: q("[data-desc]").value };
         if (cat !== x.categoryId || x.categorySource === "persona" || x.categorySource === "ia") args.categoryId = cat;
         if (fixed !== x.fixed) args.fixed = fixed;
+        if (cat !== null && !q("[data-wordbox]").hidden && q("[data-word]").checked) { args.categoryId = cat; args.rememberWord = true; }
         await call("tx.update", args).then(() => { toast(t("saved")); opts.onDone("ok"); }).catch(fail);
       });
       q("[data-no]").addEventListener("click", async () => {
@@ -266,7 +281,7 @@
       q("[data-cancel]").addEventListener("click", () => { q("[data-main]").hidden = false; q("[data-why]").hidden = true; });
       el.querySelectorAll("[data-reason]").forEach((b) => b.addEventListener("click", async () => {
         await call("tx.update", { id: x.id, status: "excluded", reason: t(b.dataset.reason), description: q("[data-desc]").value,
-          remember: q("[data-remember]").checked }).then(() => { toast(t("not_counted")); opts.onDone("excluded"); }).catch(fail);
+          remember: q("[data-remember]").checked, rememberWord: !q("[data-wordbox2]").hidden && q("[data-word2]").checked }).then(() => { toast(t("not_counted")); opts.onDone("excluded"); }).catch(fail);
       }));
       const sk = q("[data-skip]");
       if (sk) sk.addEventListener("click", () => opts.onDone("skip"));
@@ -400,6 +415,7 @@
         ${row("#settings/gmail", t("gmail"), s.email && s.hasPassword ? t("connected") : t("connect"))}
         ${row("#import", t("yape_history"), s.lastYape ? s.lastYape.slice(0, 10) : "")}
         ${row("#settings/categories", t("categories"), "")}
+        ${row("#settings/words", t("words"), "")}
         ${row("#settings/language", t("language"), s.language === "auto" ? t("lang_auto") : s.language === "en" ? "English" : "Español")}
         ${row("#settings/ai", t("ai"), s.aiProvider !== "none" && s.hasAiKey ? t("on") : t("off"))}
         <h2>${esc(t("advanced"))}</h2>
@@ -430,6 +446,27 @@
       return;
     }
     if (sub === "ai") return aiPage(s, back);
+    if (sub === "words") {
+      const [words, cats] = [await call("glossary"), await call("categories")];
+      const label = (g) => g.notExpense ? t("not_expense_cash") : ((cats.find((c) => c.id === g.categoryId) || {}).name || "—");
+      app().innerHTML = back + `<h1>${esc(t("words_title"))}</h1><p class="muted">${esc(t("words_hint"))}</p>` +
+        (words.length ? words.map((g) => `<div class="row"><span class="name"><b>${esc(g.word)}</b><small>${esc(label(g))}</small></span>
+          <button class="muted" data-w="${esc(g.word)}" style="padding:8px">${esc(t("delete"))}</button></div>`).join("") : `<p class="muted">${esc(t("words_empty"))}</p>`) +
+        `<h2>${esc(t("add"))}</h2>
+         <label>${esc(t("word"))}</label><input id="gw" placeholder="enanita">
+         <label>${esc(t("means"))}</label><select id="gc">${cats.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}
+           <option value="cash">${esc(t("not_expense_cash"))}</option></select>
+         <div class="actions" style="grid-template-columns:1fr"><button class="btn primary" id="ga">${esc(t("add"))}</button></div>`;
+      app().querySelectorAll("[data-w]").forEach((b) => b.addEventListener("click", async () => { await call("glossary.delete", { word: b.dataset.w }); settings("words"); }));
+      $("#ga").addEventListener("click", async () => {
+        const word = $("#gw").value.trim();
+        if (!word) return $("#gw").focus();
+        const v = $("#gc").value;
+        await call("glossary.save", v === "cash" ? { word, notExpense: true, reason: "cash" } : { word, categoryId: Number(v) });
+        settings("words");
+      });
+      return;
+    }
     if (sub === "rules") {
       app().innerHTML = back + `<h1>${esc(t("rules_title"))}</h1>` +
         (s.notCounted.length ? s.notCounted.map((r, i) => `<div class="row"><span class="name"><b style="font-weight:500">${esc(r.pattern)}</b><small>${esc(r.reason)}</small></span><button class="muted" data-r="notCounted:${i}">${esc(t("delete"))}</button></div>`).join("")

@@ -93,6 +93,21 @@ data class EmailRec(
     }
 }
 
+/**
+ * "Mis palabras": reglas explícitas del usuario. Si la descripción contiene exactamente
+ * esta palabra o frase, se aplica la categoría o se marca como "no es gasto".
+ * Nada se deduce por su cuenta: solo lo que el usuario escribió aquí.
+ */
+data class GlossaryEntry(val word: String, val categoryId: Long?, val notExpense: Boolean, val reason: String = "") {
+    fun toJson(): JSONObject = JSONObject().put("word", word).put("categoryId", categoryId ?: JSONObject.NULL)
+        .put("notExpense", notExpense).put("reason", reason)
+
+    companion object {
+        fun fromJson(o: JSONObject) = GlossaryEntry(o.getString("word"), if (o.isNull("categoryId")) null else o.optLong("categoryId"),
+            o.optBoolean("notExpense"), o.optString("reason"))
+    }
+}
+
 data class NotCountedRule(val pattern: String, val reason: String) {
     fun toJson(): JSONObject = JSONObject().put("pattern", pattern).put("reason", reason)
 }
@@ -158,8 +173,11 @@ class AppData {
     val memory: MutableMap<String, Long> = mutableMapOf()
     /** contraparte normalizada -> fijo/variable elegido por el usuario */
     val fixedMemory: MutableMap<String, Boolean> = mutableMapOf()
-    /** palabra de descripción -> (categoría -> veces que el usuario la usó) */
-    val wordMemory: MutableMap<String, MutableMap<Long, Int>> = mutableMapOf()
+    /** Mis palabras (explícitas). Por defecto: "sencillo" y "monedas" son cambio de efectivo. */
+    val glossary: MutableList<GlossaryEntry> = mutableListOf(
+        GlossaryEntry("sencillo", null, true, "cash"),
+        GlossaryEntry("monedas", null, true, "cash"),
+    )
 
     fun seedCategories(english: Boolean) {
         if (categories.isNotEmpty()) return
@@ -183,7 +201,7 @@ class AppData {
         .put("ignoredSubjects", JSONArray(ignoredSubjects))
         .put("memory", JSONObject(memory as Map<*, *>))
         .put("fixedMemory", JSONObject(fixedMemory as Map<*, *>))
-        .put("wordMemory", JSONObject().also { o -> wordMemory.forEach { (w, m) -> o.put(w, JSONObject(m.mapKeys { it.key.toString() })) } })
+        .put("glossary", JSONArray(glossary.map { it.toJson() }))
         .put("settings", settings.toJson())
         .toString()
 
@@ -203,10 +221,10 @@ class AppData {
             o.optJSONArray("ignoredSubjects")?.let { a -> for (i in 0 until a.length()) d.ignoredSubjects += a.getString(i) }
             o.optJSONObject("memory")?.let { m -> m.keys().forEach { k -> d.memory[k] = m.getLong(k) } }
             o.optJSONObject("fixedMemory")?.let { m -> m.keys().forEach { k -> d.fixedMemory[k] = m.getBoolean(k) } }
-            o.optJSONObject("wordMemory")?.let { m -> m.keys().forEach { w ->
-                val inner = m.getJSONObject(w)
-                d.wordMemory[w] = inner.keys().asSequence().associate { it.toLong() to inner.getInt(it) }.toMutableMap()
-            } }
+            o.optJSONArray("glossary")?.let { a ->
+                d.glossary.clear()
+                for (i in 0 until a.length()) d.glossary += GlossaryEntry.fromJson(a.getJSONObject(i))
+            }
             d.settings = Settings.fromJson(o.optJSONObject("settings"))
             return d
         }

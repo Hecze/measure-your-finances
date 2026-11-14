@@ -69,6 +69,7 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
                 status = a.optString("status").ifBlank { null },
                 excludeReason = a.optString("reason"),
                 remember = a.optBoolean("remember"),
+                rememberWord = a.optBoolean("rememberWord"),
             )
             mutated()
             ledger.data.txs.firstOrNull { it.id == a.getLong("id") }?.let { txView(it) }
@@ -98,6 +99,18 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
             ledger.data.categories.removeIf { it.id == id }
             ledger.data.txs.filter { it.categoryId == id }.forEach { it.categoryId = null; it.categorySource = "" }
             ledger.data.memory.entries.removeIf { it.value == id }
+            ledger.refreshAll()
+            mutated()
+        }
+        "glossary" -> JSONArray(ledger.data.glossary.map { it.toJson() })
+        "glossary.save" -> {
+            ledger.addGlossary(a.getString("word"), if (a.has("categoryId") && !a.isNull("categoryId")) a.getLong("categoryId") else null,
+                a.optBoolean("notExpense"), a.optString("reason"))
+            ledger.refreshAll()
+            mutated()
+        }
+        "glossary.delete" -> {
+            ledger.data.glossary.removeIf { Text.norm(it.word) == Text.norm(a.getString("word")) }
             ledger.refreshAll()
             mutated()
         }
@@ -140,7 +153,7 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
             ledger.data.ignoredSubjects.clear(); ledger.data.ignoredSubjects += d.ignoredSubjects
             ledger.data.memory.clear(); ledger.data.memory += d.memory
             ledger.data.fixedMemory.clear(); ledger.data.fixedMemory += d.fixedMemory
-            ledger.data.wordMemory.clear(); ledger.data.wordMemory += d.wordMemory
+            ledger.data.glossary.clear(); ledger.data.glossary += d.glossary
             ledger.data.nextId = maxOf(d.nextId, (d.txs.maxOfOrNull { it.id } ?: 0) + 1)
             mutated()
         }

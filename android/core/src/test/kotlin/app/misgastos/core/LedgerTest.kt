@@ -43,8 +43,9 @@ class LedgerTest {
         l.importYape(YapeExcel.parse(yapeXlsx(ROWS)))
         val jose = l.data.txs.first { it.counterparty == "Jose Ram*" }
         assertTrue("pase_de_dinero" in jose.flags)
+        // "sencillo" está en Mis palabras (por defecto): cambio de efectivo, no se cuenta.
         val flor = l.data.txs.first { it.counterparty == "Flor Per*" }
-        assertTrue("posible_cambio_o_encargo" in flor.flags)
+        assertEquals("excluded", flor.status)
         assertEquals("pending", jose.status) // solo sugerencia
         assertTrue(l.queue().first() == jose || l.queue().contains(jose))
     }
@@ -114,8 +115,12 @@ class LedgerTest {
             listOf("PAGASTE", "Ana Per*", "Flor Per*", "5.00", "gillet más agua", "01/11/2026 16:00:00"),
             listOf("PAGASTE", "Ana Per*", "Flor Per*", "20.00", "karate valery", "01/11/2026 17:00:00"),
             listOf("PAGASTE", "Ana Per*", "Flor Per*", "15.00", "enanita", "01/11/2026 18:00:00"),
+            listOf("PAGASTE", "Ana Per*", "Luis Gom*", "10.00", "mike", "01/11/2026 19:00:00"),
+            listOf("PAGASTE", "Ana Per*", "Luis Gom*", "14.00", "2 fourloko", "01/11/2026 20:00:00"),
         )
         l.importYape(YapeExcel.parse(yapeXlsx(rows)))
+        assertEquals(cat(l, "Salidas y ocio"), l.data.txs.first { it.description == "mike" }.categoryId)
+        assertEquals(cat(l, "Salidas y ocio"), l.data.txs.first { it.description == "2 fourloko" }.categoryId)
         fun c(d: String) = l.data.txs.first { it.description == d }.categoryId
         assertEquals(cat(l, "Comida"), c("1/4 + 1l de chicha"))
         assertEquals(cat(l, "Transporte"), c("pasaje mall"))
@@ -125,13 +130,47 @@ class LedgerTest {
         assertEquals(null, c("enanita")) // no se adivina
     }
 
-    @Test fun aprendeDeLasCorrecciones() {
+    @Test fun misPalabrasSonExplicitas() {
         val l = ledger()
-        l.importYape(YapeExcel.parse(yapeXlsx(listOf(listOf("PAGASTE", "Ana Per*", "Flor Per*", "15.00", "enanita", "01/11/2026 18:00:00")))))
-        val t = l.data.txs.first()
-        l.update(t.id, categoryId = cat(l, "Comida"))
-        l.importYape(YapeExcel.parse(yapeXlsx(listOf(listOf("PAGASTE", "Ana Per*", "Luis Gom*", "15.00", "2 enanitas no, enanita", "02/11/2026 18:00:00")))))
+        val rows = listOf(
+            listOf("PAGASTE", "Ana Per*", "Flor Per*", "15.00", "enanita", "10/11/2026 18:00:00"),
+            listOf("PAGASTE", "Ana Per*", "Luis Gom*", "10.00", "pololaaa", "10/11/2026 19:00:00"),
+            listOf("PAGASTE", "Ana Per*", "Rosa Per*", "50.00", "monedas", "10/11/2026 20:00:00"),
+            listOf("PAGASTE", "Ana Per*", "Rosa Per*", "8.00", "menanitas", "10/11/2026 21:00:00"),
+        )
+        l.importYape(YapeExcel.parse(yapeXlsx(rows)))
+        assertEquals(null, l.data.txs.first { it.description == "enanita" }.categoryId) // sin regla: no se adivina
+        assertEquals("excluded", l.data.txs.first { it.description == "monedas" }.status)
+        // El usuario dice explícitamente qué significa cada palabra.
+        l.addGlossary("enanita", cat(l, "Comida"), false, "")
+        l.addGlossary("pololaaa", cat(l, "Salidas y ocio"), false, "")
+        l.refreshAll()
+        assertEquals(cat(l, "Comida"), l.data.txs.first { it.description == "enanita" }.categoryId)
+        assertEquals(cat(l, "Salidas y ocio"), l.data.txs.first { it.description == "pololaaa" }.categoryId)
+        // Solo palabra completa: "menanitas" no es "enanita".
+        assertEquals(null, l.data.txs.first { it.description == "menanitas" }.categoryId)
+        // Corregir un gasto NO enseña nada por su cuenta.
+        val t = l.data.txs.first { it.description == "menanitas" }
+        l.update(t.id, categoryId = cat(l, "Compras"))
+        assertEquals(4, l.data.glossary.size) // sencillo, monedas, enanita, pololaaa: corregir no agrega reglas
+    }
+
+    @Test fun recordarPalabraDesdeLaTarjeta() {
+        val l = ledger()
+        l.importYape(YapeExcel.parse(yapeXlsx(listOf(listOf("PAGASTE", "Ana Per*", "Flor Per*", "15.00", "enanita", "10/11/2026 18:00:00")))))
+        l.update(l.data.txs.first().id, categoryId = cat(l, "Comida"), rememberWord = true)
+        l.importYape(YapeExcel.parse(yapeXlsx(listOf(listOf("PAGASTE", "Ana Per*", "Luis Gom*", "20.00", "Enanita", "12/11/2026 18:00:00")))))
         assertEquals(cat(l, "Comida"), l.data.txs.first { it.counterparty == "Luis Gom*" }.categoryId)
+    }
+
+    @Test fun soloSePidenDescripcionesDelMesActual() {
+        val l = ledger() // "hoy" = 14/11/2026
+        l.importYape(YapeExcel.parse(yapeXlsx(listOf(
+            listOf("PAGASTE", "Ana Per*", "Lucia Pat*", "10.00", "", "30/10/2026 12:00:00"),
+            listOf("PAGASTE", "Ana Per*", "Lucia Pat*", "12.00", "", "02/11/2026 12:00:00"),
+        ))))
+        val q = l.queue()
+        assertEquals(listOf(12.0), q.map { it.amount })
     }
 
     @Test fun loUsualConEstaPersona() {
