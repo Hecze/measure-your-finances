@@ -292,7 +292,10 @@ h2 { font-size: .95rem; text-transform: none; letter-spacing: 0; color: var(--te
 .txrow > .icon.cat { margin-top: 2px; }
 .tx-l { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .tx-l b { font-weight: 500; overflow-wrap: anywhere; }
-.tx-desc { font-size: .9rem; color: var(--text); opacity: .8; overflow-wrap: anywhere; }
+.tx-desc { display: flex; align-items: flex-start; gap: 6px; font-size: .9rem; color: var(--text); overflow-wrap: anywhere; margin-top: 1px; }
+.tx-desc.muted { color: var(--muted); }
+.tx-desc .icon.cat { width: 16px; height: 16px; margin-top: 2px; color: var(--muted); opacity: 1; }
+.tx-desc span { min-width: 0; }
 .tx-l small, .tx-r small { font-size: .82rem; color: var(--muted); display: flex; align-items: center; gap: 4px; }
 .tx-l small .icon.cat { width: 14px; height: 14px; color: var(--muted); opacity: 1; }
 .tx-r { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; text-align: right; }
