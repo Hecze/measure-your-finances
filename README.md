@@ -1,102 +1,91 @@
 # Mis Gastos
 
-App open source y auto-alojable para saber **cuánto gastas y en qué**, leyendo los correos de Yape y de tus bancos en Perú, más el historial de Yape.
+App Android open source para saber **cuánto gastas y en qué**, leyendo los correos de tus bancos y tu historial de Yape. Todo vive en tu teléfono: sin servidores, sin cuentas, sin publicidad.
 
-- **Ultra simple:** un número (lo que gastaste este mes), tus categorías y un botón de *pendientes*.
-- **No adivina:** cada tipo de correo tiene una plantilla exacta. Si llega un correo de un banco que no reconoce, te lo pregunta.
-- **Mide gastos, no ingresos.** Tú decides qué no cuenta (cambio de efectivo, encargos, transferencias a tus cuentas).
-- **Tus datos son tuyos:** todo se guarda en un archivo SQLite en tu servidor. La IA es opcional y puede ser 100% local.
+**[Descargar el APK](https://github.com/Hecze/measure-your-finances/releases/download/apk-latest/mis-gastos.apk)**
 
-## Cómo funciona
+## Qué hace
 
-```
- Gmail (IMAP, solo remitentes de bancos) ─┐
-                                          ├─► plantillas exactas ─► gasto / no es gasto / ingreso / ignorar / ❓ revisar
- Historial de Yape (.xlsx) ───────────────┘          │
-   · llega por correo y se importa solo              ▼
-   · o lo subes a mano                     deduplicación (mismo pago por 2 vías)
-                                                     │
-                                                     ▼
-                                     categoría: tus correcciones › reglas › palabras clave › IA (opcional)
-                                                     │
-                                                     ▼
-                                     Pendientes: una tarjeta a la vez → "¿En qué fue?" · Listo / No es gasto
-```
+- **Un número**: lo que gastaste este mes, separado en **Fijos** (alquiler, universidad, plan de celular) y **Variables**.
+- **Pendientes, de a uno**: "¿En qué fue?", Fijo/Variable, categoría, y *Listo* o *No es gasto*.
+- **No adivina.** Cada tipo de correo tiene una plantilla exacta. Si llega uno que no reconoce, te pregunta.
+- **Mide gastos, no ingresos.** Tú decides qué no cuenta: cambio de efectivo, encargos, pases de dinero, transferencias a tus propias cuentas.
+- **Español e inglés** (Ajustes → Idioma).
 
-### Lo que aprendimos con correos reales (y por qué otras IA se pierden)
+## De dónde salen los datos
 
-| Trampa | Qué pasa | Cómo se resuelve |
+| Fuente | Qué trae | Cómo |
 |---|---|---|
-| **Yape no manda correo por cada yapeo a personas** | La mayoría de tus gastos del día a día (pagos a personas) no está en el correo | Importar el **historial de Yape**: lo pides en la app de Yape, llega por correo y se importa solo |
-| Gmail agrupa correos con el mismo asunto en un hilo | Si lees "hilos" ves 5 consumos y crees que son todos | Se lee **mensaje por mensaje** por IMAP |
-| Todos los correos de consumo del BCP dicen al pie *"Si tu compra fue rechazada…"* | Un filtro ingenuo descarta consumos reales | Los rechazos se detectan **solo por el asunto** |
-| *"Constancia de Favorito: Agregaste un Pago de Servicios"* | Parece un pago y no lo es | Se ignora antes que cualquier plantilla |
-| El monto del pago de servicios (ej. universidad) no está en el resumen del correo | La IA que lee el resumen no ve el monto | Se lee la etiqueta exacta *Monto total* en el cuerpo |
-| El mismo gasto se paga por distintas vías | La universidad un mes por *Pago de servicios* y otro con *consumo de tarjeta* | Ambas plantillas cubiertas |
-| Un pago de Yape a Plin/BIM también llega como *consumo con débito BCP* | Se contaría doble | Deduplicación por monto y hora (±5 min) entre correo y Excel |
-| Pagar tu tarjeta de crédito | Se contaría doble (el consumo y el pago) | El pago de tu propia tarjeta **no es gasto** |
-| Te yapean para que tú pagues/transfieras por ellos | Parece gasto tuyo | Sugerencias: *"X te envió S/150 un minuto antes"* o *"esta persona también te envía dinero"* |
+| **Gmail** | Consumos con tarjeta, transferencias, pagos de servicios, pagos con Yape en otras apps | Ajustes → Gmail. Se usa una *contraseña de aplicación* de Google. Solo se leen correos de los bancos y Yape, nunca se marcan como leídos. Se revisa al abrir la app y cada 6 horas. |
+| **Historial de Yape** | Los pagos a personas (Yape **no** envía correo por esos) | Pídelo en la app de Yape. Llega a tu correo y la app lo importa sola; o ábrelo con "Abrir con → Mis Gastos". Importar dos veces no duplica nada. |
+| **Manual** | Gastos en efectivo | Ver todos los gastos → Agregar gasto en efectivo. |
 
-Plantillas incluidas (BCP y Yape, verificadas con correos reales): consumo con tarjeta de crédito/débito, transferencia a terceros, a otros bancos, entre tus cuentas, pago de servicios, pago de tarjeta propia, devolución, wardadito, yapeo recibido, yapeo, "Pagar con Yape" en otras apps (PedidosYa…), yapeo de servicio, recarga, Yape Promos. Otros bancos usan una plantilla genérica que **siempre** pide confirmación.
+¿Por qué una contraseña de aplicación y no "Iniciar sesión con Google"? Google exige una auditoría de seguridad de pago a las apps que leen Gmail. Para una app open source que instalas tú, la contraseña de aplicación es el camino realista. Se guarda cifrada con el Keystore de Android.
 
-## Instalar (Docker)
+## Cómo entiende tus gastos
 
-```bash
-git clone https://github.com/hecze/measure-your-finances.git
-```
+1. **Fijo o variable**: pagos de servicios, palabras como "alquiler" o "mensualidad", o el mismo pago repetido 3+ meses con monto parecido.
+2. **En qué fue** (para lo variable):
+   - vocabulario peruano ("1/4 + 1l de chicha" → Comida, "pasaje mall" → Transporte);
+   - lo que **tú le enseñas**: cada descripción que categorizas le enseña esas palabras;
+   - lo usual con cada persona (si lo de Sonia siempre fue comida, se sugiere comida);
+   - **IA opcional** con la API key de tu proveedor (Claude, OpenAI, Gemini, Groq, OpenRouter, DeepSeek o cualquier compatible). Si la IA tampoco entiende ("enanita"), te pregunta.
+3. **¿Es realmente un gasto?** Señales, nunca decisiones automáticas:
+   - "X te envió S/150 un minuto antes": ¿pagaste por él?
+   - "Esta persona también te envía dinero": ¿encargo?
+   - descripciones como "sencillo" o "monedas": ¿cambio de efectivo?
 
-```bash
-cd measure-your-finances && cp .env.example .env
-```
+### Trampas encontradas con correos reales
 
-Edita `.env` (al menos `APP_PASSWORD` y `SECRET_KEY`) y luego:
+| Trampa | Solución |
+|---|---|
+| Gmail agrupa correos con el mismo asunto en un hilo | Se lee mensaje por mensaje |
+| Los correos de consumo del BCP dicen al pie *"Si tu compra fue rechazada…"* | Los rechazos se detectan solo por el asunto |
+| *"Favorito: Agregaste un Pago de Servicios"* parece un pago | Se ignora antes que cualquier plantilla |
+| El monto del pago de servicios no está en el resumen del correo | Se lee la etiqueta *Monto total* del cuerpo |
+| Un pago de Yape a Plin/BIM también llega como consumo con débito BCP | Se reconoce como el mismo pago (monto y hora) |
+| Pagar tu tarjeta de crédito duplicaría los consumos | El pago de tu propia tarjeta no es gasto |
+| "Compra por internet", "agua", "luz" en descripciones | No vuelven fijo un gasto |
 
-```bash
-docker compose up -d
-```
+Plantillas verificadas (BCP y Yape): consumo con tarjeta de crédito y débito, transferencias (a terceros, otros bancos, entre tus cuentas), pago de servicios, pago de tarjeta propia, devoluciones, ahorro (wardadito), yapeo recibido, yapeo, "Pagar con Yape" en otras apps, yapeo de servicio, recarga, Yape Promos. Otros bancos usan una plantilla genérica que siempre pide confirmación.
 
-Abre http://localhost:8000. Los datos quedan en `./data/finanzas.db`.
+## Privacidad
 
-Sin Docker:
-
-```bash
-pip install -r requirements.txt && uvicorn app.main:app --port 8000
-```
-
-### Conectar Gmail
-
-1. Activa la verificación en 2 pasos en tu cuenta de Google.
-2. Crea una **contraseña de aplicación** (Cuenta de Google → Seguridad → Contraseñas de aplicaciones).
-3. En la app: ⚙︎ → Correo → tu correo y esa contraseña.
-
-Solo se descargan correos de los remitentes de la lista (⚙︎ → Avanzado → Reglas): `notificaciones@yape.pe`, `notificaciones@notificacionesbcp.com.pe`, BBVA, Interbank, Scotiabank, etc. Los correos nunca se marcan como leídos.
-
-### Historial de Yape
-
-En la app de Yape pide tu historial de movimientos. Te llega por correo como *"Historial de Movimientos"* con un Excel adjunto. Si conectaste tu correo, **se importa solo**. Si no, súbelo en ⚙︎ → Importar historial de Yape. Importarlo dos veces no duplica nada.
-
-### IA (opcional)
-
-⚙︎ → Inteligencia artificial:
-- **Claude (Anthropic):** pega tu API key.
-- **Local u otro:** cualquier servidor compatible con `/chat/completions` (Ollama, LM Studio, OpenRouter). Con Ollama todo queda en tu máquina.
-
-La IA solo **sugiere** categorías y lee correos que ninguna plantilla reconoce. Todo lo que propone queda pendiente hasta que lo confirmas.
-
-## Mejorar la detección
-
-- **Pendientes:** cada corrección enseña a la app (categoría por comercio, "no contar nunca a esta persona").
-- **⚙︎ → Avanzado → Correos leídos:** cada correo muestra qué se decidió y por qué. Puedes corregirlo y crear una regla.
-- **⚙︎ → Avanzado → Reglas:** probador para pegar un correo y ver qué entiende la app, sin guardar nada.
-- ¿Tu banco no está? Abre un issue con la estructura del correo (**sin datos personales**) o agrega una plantilla en `app/parsers.py` con su test en `tests/`.
+- Los datos se guardan solo en el almacenamiento privado de la app.
+- La contraseña de Gmail y la API key de IA se guardan cifradas.
+- Nada se envía a ningún servidor, salvo a Gmail (para leer tus correos) y, si la activas, al proveedor de IA (solo descripción, a quién y monto de los gastos que no se entienden).
+- Copia de seguridad: Ajustes → Copia de seguridad.
 
 ## Desarrollo
 
-```bash
-pip install -r requirements.txt pytest && python -m pytest -q
+```
+android/
+  core/       motor en Kotlin puro: parsers, Excel de Yape, clasificación, IA (probado en la JVM)
+  app/        app Android: WebView con la interfaz (assets/web) + puente + lectura de Gmail
+  devserver/  sirve la misma interfaz en el navegador, para desarrollar sin emulador
 ```
 
-Python + FastAPI + SQLite + plantillas Jinja2. Sin build de frontend.
+Tests del núcleo (solo necesita Java 17+ y Gradle):
+
+```bash
+cd android && gradle :core:test
+```
+
+Probar la interfaz en el navegador:
+
+```bash
+cd android && gradle :devserver:run
+```
+
+El APK se compila en GitHub Actions (`.github/workflows/android.yml`) y se publica en la release `apk-latest`. Para compilarlo localmente necesitas el Android SDK:
+
+```bash
+cd android && gradle :app:assembleRelease
+```
+
+**Firma:** la llave `android/keystore/mis-gastos.jks` es pública a propósito: así las actualizaciones se instalan sobre la versión anterior sin perder datos. Si distribuyes tu propia versión, usa tu llave con las variables `KEYSTORE_FILE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` y `KEY_PASSWORD`.
+
+¿Tu banco no está? Abre un issue con la **estructura** del correo (sin datos personales) o agrega una plantilla en `core/.../Parsers.kt` con su test.
 
 ## Licencia
 
