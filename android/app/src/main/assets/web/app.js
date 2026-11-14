@@ -122,10 +122,16 @@
         <small>${srcIcon(x.src, "xs")}${esc(srcLabel(x, true))}</small>${extra ? `<small>${esc(extra)}</small>` : ""}</span>
     </button>`;
   }
+  // Hora en formato de 12 horas: "1:10 p. m." / "1:10 PM".
+  function hm(d) {
+    const h = d.getHours(), m = String(d.getMinutes()).padStart(2, "0");
+    const am = h < 12;
+    return `${h % 12 || 12}:${m} ${lang === "en" ? (am ? "AM" : "PM") : (am ? "a. m." : "p. m.")}`;
+  }
   function whenShort(ts) {
     const d = new Date(String(ts).replace(" ", "T"));
     if (isNaN(d)) return ts;
-    return `${d.getDate()} ${L.months[d.getMonth()].slice(0, 3)} · ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    return `${d.getDate()} ${L.months[d.getMonth()].slice(0, 3)} · ${hm(d)}`;
   }
 
   function monthLabel(ym, withYear) {
@@ -138,7 +144,7 @@
     const d = new Date(ts.replace(" ", "T"));
     if (isNaN(d)) return ts;
     const mon = L.months[d.getMonth()].slice(0, 3);
-    return `${L.days[d.getDay()]} ${d.getDate()} ${mon} · ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    return `${L.days[d.getDay()]} ${d.getDate()} ${mon} · ${hm(d)}`;
   }
   function toast(msg, action, onAction) {
     let el = $("#toast");
