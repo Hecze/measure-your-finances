@@ -185,6 +185,8 @@ class AppData {
     val ignoredSubjects: MutableList<String> = mutableListOf()
     /** contraparte normalizada -> categoría elegida por el usuario */
     val memory: MutableMap<String, Long> = mutableMapOf()
+    /** contraparte normalizada -> nombre que el usuario prefiere ("Jcc Ingenieria..." -> "Alquiler"). Solo para mostrar. */
+    val aliases: MutableMap<String, String> = mutableMapOf()
     /** contraparte normalizada -> fijo/variable elegido por el usuario */
     val fixedMemory: MutableMap<String, Boolean> = mutableMapOf()
     /** Mis palabras (explícitas). Por defecto: "sencillo" y "monedas" son cambio de efectivo. */
@@ -215,6 +217,7 @@ class AppData {
         .put("ignoredSubjects", JSONArray(ignoredSubjects))
         .put("memory", JSONObject(memory as Map<*, *>))
         .put("fixedMemory", JSONObject(fixedMemory as Map<*, *>))
+        .put("aliases", JSONObject(aliases as Map<*, *>))
         .put("glossary", JSONArray(glossary.map { it.toJson() }))
         .put("settings", settings.toJson())
         .toString()
@@ -235,6 +238,7 @@ class AppData {
             o.optJSONArray("ignoredSubjects")?.let { a -> for (i in 0 until a.length()) d.ignoredSubjects += a.getString(i) }
             o.optJSONObject("memory")?.let { m -> m.keys().forEach { k -> d.memory[k] = m.getLong(k) } }
             o.optJSONObject("fixedMemory")?.let { m -> m.keys().forEach { k -> d.fixedMemory[k] = m.getBoolean(k) } }
+            o.optJSONObject("aliases")?.let { m -> m.keys().forEach { k -> d.aliases[k] = m.getString(k) } }
             o.optJSONArray("glossary")?.let { a ->
                 d.glossary.clear()
                 for (i in 0 until a.length()) d.glossary += GlossaryEntry.fromJson(a.getJSONObject(i))

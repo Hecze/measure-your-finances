@@ -85,6 +85,7 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
             ledger.refreshAll()
             mutated()
         }
+        "payee.rename" -> { val n = ledger.rename(a.getLong("id"), a.optString("name")); mutated(); n }
         "tx.delete" -> { ledger.data.txs.removeIf { it.id == a.getLong("id") && it.source == "manual" }; mutated() }
         "categories" -> JSONArray(ledger.data.categories.map { c ->
             JSONObject().put("id", c.id).put("name", c.name).put("n", ledger.data.txs.count { it.categoryId == c.id })
@@ -155,6 +156,7 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
             ledger.data.ignoredSubjects.clear(); ledger.data.ignoredSubjects += d.ignoredSubjects
             ledger.data.memory.clear(); ledger.data.memory += d.memory
             ledger.data.fixedMemory.clear(); ledger.data.fixedMemory += d.fixedMemory
+            ledger.data.aliases.clear(); ledger.data.aliases += d.aliases
             ledger.data.glossary.clear(); ledger.data.glossary += d.glossary
             ledger.data.nextId = maxOf(d.nextId, (d.txs.maxOfOrNull { it.id } ?: 0) + 1)
             mutated()
@@ -167,7 +169,8 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
     // ------------------------------------------------------------------ vistas
     fun txView(t: Tx): JSONObject {
         val o = JSONObject()
-            .put("id", t.id).put("amount", t.amount).put("currency", t.currency).put("who", t.counterparty.ifBlank { t.account })
+            .put("id", t.id).put("amount", t.amount).put("currency", t.currency).put("who", ledger.displayName(t))
+            .put("original", t.counterparty)
             .put("when", t.occurredAt).put("account", t.account).put("accountDetail", t.accountDetail).put("description", t.description)
             .put("categoryId", t.categoryId ?: JSONObject.NULL).put("categorySource", t.categorySource)
             .put("fixed", t.fixed).put("fixedSource", t.fixedSource).put("status", t.status).put("excludeReason", t.excludeReason)

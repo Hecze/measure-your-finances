@@ -460,6 +460,19 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
         refreshAll()
     }
 
+    /** Nombre a mostrar: el que eligió el usuario para ese receptor, o el original. */
+    fun displayName(t: Tx): String = data.aliases[counterpartyKey(t.counterparty)] ?: t.counterparty.ifBlank { t.account }
+
+    /** Renombra un receptor en todos sus pagos (pasados y futuros). Vacío = volver al nombre original. Devuelve cuántos pagos afecta. */
+    fun rename(id: Long, name: String): Int {
+        val t = data.txs.firstOrNull { it.id == id } ?: return 0
+        val key = counterpartyKey(t.counterparty)
+        if (key.isEmpty()) return 0
+        val n = name.trim().take(60)
+        if (n.isEmpty() || n == t.counterparty) data.aliases.remove(key) else data.aliases[key] = n
+        return data.txs.count { counterpartyKey(it.counterparty) == key }
+    }
+
     /** Agrega (o reemplaza) una entrada de "Mis palabras" con el texto tal cual lo escribió el usuario. */
     fun addGlossary(word: String, categoryId: Long?, notExpense: Boolean, reason: String) {
         val w = word.trim()

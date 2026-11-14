@@ -69,6 +69,18 @@ class LedgerTest {
         assertEquals(3.4510, l.data.settings.usdToPen)
     }
 
+    @Test fun renombrarReceptor() {
+        val l = ledger()
+        l.importYape(YapeExcel.parse(yapeXlsx(listOf(
+            listOf("PAGASTE", "Ana Per*", "INMOBILIARIA EJEMPLO SAC", "500.00", "hab 1", "11/09/2026 10:00:00"),
+            listOf("PAGASTE", "Ana Per*", "INMOBILIARIA EJEMPLO SAC", "500.00", "hab 1", "11/10/2026 10:00:00"),
+        ))))
+        assertEquals(2, l.rename(l.data.txs.first().id, "Alquiler"))
+        l.importYape(YapeExcel.parse(yapeXlsx(listOf(listOf("PAGASTE", "Ana Per*", "INMOBILIARIA EJEMPLO SAC", "500.00", "", "11/11/2026 10:00:00")))))
+        assertTrue(l.data.txs.all { l.displayName(it) == "Alquiler" }) // también los nuevos
+        assertTrue(l.data.txs.all { it.counterparty == "INMOBILIARIA EJEMPLO SAC" }) // el original se conserva
+    }
+
     @Test fun montoEditable() {
         val l = ledger()
         l.importYape(YapeExcel.parse(yapeXlsx(listOf(listOf("PAGASTE", "Ana Per*", "Rosa Per*", "120.00", "cena", "10/11/2026 21:00:00")))))

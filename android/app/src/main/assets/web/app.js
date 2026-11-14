@@ -47,7 +47,23 @@
     right: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>',
     gear: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
     check: '<svg class="icon" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>',
+    down: '<svg class="icon sm" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
+    pencil: '<svg class="icon sm" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
   };
+
+  // Íconos de categoría (línea fina, mismo trazo que el resto). Por id de categoría por defecto; las nuevas usan una etiqueta.
+  const CAT_ICON = {
+    100: '<path d="M3 2v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6a2 2 0 0 0 2 2h3zm0 0v7"/>',
+    101: '<path d="M19 17h2a1 1 0 0 0 1-1v-3a2 2 0 0 0-1.5-1.9C18.7 10.6 16 10 16 10l-2.2-2.3A2.5 2.5 0 0 0 12 7H5a1.6 1.6 0 0 0-1.4.9L2.2 10.8A3.7 3.7 0 0 0 2 12v4a1 1 0 0 0 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>',
+    102: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>',
+    103: '<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"/>',
+    104: '<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>',
+    105: '<path d="M8 22h8"/><path d="M12 15v7"/><path d="M5 3h14l-1 7a6 6 0 0 1-12 0z"/>',
+    106: '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+  };
+  const TAG_ICON = '<path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"/><circle cx="7.5" cy="7.5" r="1"/>';
+  const NONE_ICON = '<circle cx="12" cy="12" r="9" stroke-dasharray="2.5 3"/>';
+  const catIcon = (id) => `<svg class="icon cat" viewBox="0 0 24 24">${id == null ? NONE_ICON : (CAT_ICON[id] || TAG_ICON)}</svg>`;
 
   function monthLabel(ym) {
     const [y, m] = ym.split("-").map(Number);
@@ -61,11 +77,13 @@
     const mon = L.months[d.getMonth()].slice(0, 3);
     return `${L.days[d.getDay()]} ${d.getDate()} ${mon} · ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   }
-  function toast(msg) {
+  function toast(msg, action, onAction) {
     let el = $("#toast");
     if (!el) { el = document.createElement("div"); el.id = "toast"; el.className = "toast"; document.body.appendChild(el); }
-    el.textContent = msg; el.classList.add("show");
-    clearTimeout(el._h); el._h = setTimeout(() => el.classList.remove("show"), 1800);
+    el.innerHTML = esc(msg) + (action ? ` <button class="toast-btn">${esc(action)}</button>` : "");
+    if (action) el.querySelector(".toast-btn").onclick = () => { el.classList.remove("show"); onAction(); };
+    el.classList.add("show");
+    clearTimeout(el._h); el._h = setTimeout(() => el.classList.remove("show"), action ? 4500 : 1800);
   }
   const fail = (e) => toast(e && e.message && L["err_" + e.message] ? t("err_" + e.message) : t("error"));
 
@@ -161,10 +179,10 @@
     if (d.breakdown) {
       const max = Math.max(1, ...d.breakdown.map((b) => b.total), d.unclassified ? d.unclassified.total : 0);
       breakdown = d.breakdown.map((b) => `
-        <a class="row" href="#list/cat:${b.id}">
+        <a class="row" href="#list/cat:${b.id}">${catIcon(b.id)}
           <span class="name" style="flex:1"><b>${esc(b.name)}</b><span class="bar" style="display:block"><i style="width:${(100 * b.total) / max}%"></i></span></span>
           <span class="amt num">${money(b.total)}</span></a>`).join("") +
-        (d.unclassified ? `<a class="row dim" href="#list/none"><span class="name"><b style="font-weight:500">${esc(t("unclassified"))}</b>
+        (d.unclassified ? `<a class="row dim" href="#list/none">${catIcon(null)}<span class="name" style="flex:1"><b style="font-weight:500">${esc(t("unclassified"))}</b>
           <small>${esc(t("payments_n", { n: d.unclassified.n }))}</small></span><span class="amt num">${money(d.unclassified.total)}</span></a>` : "");
       breakdown = `<div>${breakdown}</div><h2>${esc(t("all_expenses"))}</h2>`;
     }
@@ -226,9 +244,6 @@
     return t("hint_" + h.code, h.params || {});
   }
 
-  // Señales de que quizás no es un gasto: ahí "No es gasto" se muestra junto a Listo.
-  const DOUBT = new Set(["passthrough", "reciprocal", "cash", "transfer"]);
-
   function editor(el, x, cats, opts) {
     let cat = x.categoryId;
     let fixed = x.fixed;
@@ -236,7 +251,7 @@
     const catName = () => (cats.find((c) => c.id === cat) || {}).name;
     const summary = () => [catName(), fixed ? t("fixed_one") : t("variable_one"),
       x.installments > 1 ? t("n_installments", { n: x.installments }) : ""].filter(Boolean).join(" · ");
-    const doubt = x.hint && DOUBT.has(x.hint.code);
+    const excluded = x.status === "excluded";
 
     el.innerHTML = `
       <div class="ed">
@@ -244,41 +259,60 @@
         <div class="ed-head">
           <div class="ed-amount num" data-amount>${money(x.amount, x.currency)}</div>
           ${x.currency === "USD" ? `<div class="ed-sub">≈ ${money(x.amountPen)}</div>` : ""}
-          <div class="ed-who">${esc(x.who)}</div>
+          <button class="ed-who" data-rename><span data-name>${esc(x.who)}</span> ${ICON.pencil}</button>
           <div class="ed-sub">${esc(whenLabel(x.when))}${x.installment ? " · " + esc(t("installment", { k: x.installment })) : ""}</div>
           <button class="ed-tag" data-more-toggle>${esc(summary())}</button>
         </div>
-        ${x.hint ? `<div class="ed-hint">${esc(hintText(x.hint))}</div>` : ""}
-        <input class="ed-input" data-desc placeholder="${esc(t("what_for"))}" value="${esc(x.description)}" autocomplete="off" enterkeyhint="done">
-        <div class="ed-actions ${doubt || x.status === "excluded" ? "two" : ""}" data-main>
-          ${doubt || x.status === "excluded" ? `<button class="btn" data-no>${esc(x.status === "excluded" ? t("is_expense") : t("not_expense"))}</button>` : ""}
+        <label class="ed-field">${esc(t("description"))}
+          <input class="ed-input" data-desc placeholder="${esc(t("desc_example"))}" value="${esc(x.description)}" autocomplete="off" enterkeyhint="done">
+        </label>
+        <div class="ed-actions two">
+          <button class="btn" data-no>${esc(excluded ? t("count_again") : t("delete_expense"))}</button>
           <button class="btn primary" data-ok>${esc(t("done"))}</button>
         </div>
         <button class="link" data-more-toggle>${esc(t("more_options"))}</button>
         <div class="ed-more" data-more hidden>
           <div class="ed-label">${esc(t("category"))}</div>
-          <div class="chips">${cats.map((c) => `<button class="chip ${c.id === cat ? "on" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("")}</div>
+          <button class="select" data-catsel>${catIcon(cat)}<span data-catname>${esc(catName() || t("no_category"))}</span>${ICON.down}</button>
+          <div class="options" data-catlist hidden>
+            ${cats.map((c) => `<button class="option ${c.id === cat ? "on" : ""}" data-cat="${c.id}">${catIcon(c.id)}<span>${esc(c.name)}</span></button>`).join("")}
+            <button class="option ${cat == null ? "on" : ""}" data-cat="">${catIcon(null)}<span>${esc(t("no_category"))}</span></button>
+          </div>
           <label class="check" data-wordbox hidden><input type="checkbox" data-word> <span data-wordlabel></span></label>
           <div class="ed-label">${esc(t("type"))}</div>
           <div class="seg"><button data-fx="1" class="${fixed ? "on" : ""}">${esc(t("fixed_one"))}</button><button data-fx="0" class="${fixed ? "" : "on"}">${esc(t("variable_one"))}</button></div>
           ${x.credit ? `<div class="ed-label">${esc(t("payment"))}</div><select data-inst>${[1, 2, 3, 4, 5, 6, 8, 10, 12, 18, 24, 36].map((n) =>
             `<option value="${n}" ${n === (x.installments || 1) ? "selected" : ""}>${esc(n === 1 ? t("single_payment") : t("n_installments", { n }))}</option>`).join("")}</select>` : ""}
-          ${!doubt && x.status !== "excluded" ? `<button class="link danger" data-no>${esc(t("not_expense"))}</button>` : ""}
+          ${!excluded ? `<button class="link danger" data-never>${esc(t("never_count", { who: x.who }))}</button>` : ""}
         </div>
-        <div class="ed-why" data-why hidden>
-          <div class="ed-label">${esc(t("why_not"))}</div>
-          <div class="chips">${["reason_cash", "reason_pass", "reason_own", "reason_loan"].map((r) => `<button class="chip" data-reason="${r}">${esc(t(r))}</button>`).join("")}</div>
-          <label class="check"><input type="checkbox" data-remember> ${esc(t("never_count", { who: x.who }))}</label>
-          <label class="check" data-wordbox2 hidden><input type="checkbox" data-word2> <span data-wordlabel2></span></label>
-          <button class="link" data-cancel>${esc(t("cancel"))}</button>
-        </div>
-        ${opts.skip ? `<button class="link" data-skip>${esc(t("skip"))}</button>` : ""}
       </div>`;
 
     const q = (s) => el.querySelector(s);
     const qa = (s) => el.querySelectorAll(s);
     const refreshTag = () => qa(".ed-tag").forEach((b) => { b.textContent = summary(); });
 
+    // Renombrar el receptor (se aplica a todos sus pagos).
+    q("[data-rename]").addEventListener("click", () => {
+      if (q("[data-rename] input")) return;
+      const btn = q("[data-rename]");
+      btn.innerHTML = `<input value="${esc(x.who)}" enterkeyhint="done">`;
+      const inp = btn.querySelector("input");
+      inp.focus(); inp.select();
+      let saved = false;
+      const save = async () => {
+        if (saved) return; saved = true;
+        const name = inp.value.trim() || x.original || x.who;
+        if (name !== x.who) {
+          const n = await call("payee.rename", { id: x.id, name }).catch(fail);
+          x.who = name;
+          if (n > 1) toast(t("renamed_n", { n }));
+        }
+        btn.innerHTML = `<span data-name>${esc(x.who)}</span> ${ICON.pencil}`;
+      };
+      inp.addEventListener("blur", save);
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } });
+      inp.addEventListener("click", (e) => e.stopPropagation());
+    });
     // Monto editable: tocarlo lo convierte en un campo.
     q("[data-amount]").addEventListener("click", () => {
       if (q("[data-amount] input")) return;
@@ -296,15 +330,15 @@
       const w = shortWord();
       q("[data-wordbox]").hidden = !w || cat === null;
       q("[data-wordlabel]").textContent = t("always_word", { w });
-      q("[data-wordbox2]").hidden = !w;
-      q("[data-wordlabel2]").textContent = t("always_word_not", { w });
     };
     q("[data-desc]").addEventListener("input", syncWord);
     q("[data-desc]").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); q("[data-ok]").click(); } });
+    q("[data-catsel]").addEventListener("click", () => { q("[data-catlist]").hidden = !q("[data-catlist]").hidden; });
     qa("[data-cat]").forEach((b) => b.addEventListener("click", () => {
-      const id = Number(b.dataset.cat);
-      cat = cat === id ? null : id;
-      qa("[data-cat]").forEach((y) => y.classList.toggle("on", Number(y.dataset.cat) === cat));
+      cat = b.dataset.cat === "" ? null : Number(b.dataset.cat);
+      qa("[data-cat]").forEach((y) => y.classList.toggle("on", y === b));
+      q("[data-catsel]").innerHTML = `${catIcon(cat)}<span data-catname>${esc(catName() || t("no_category"))}</span>${ICON.down}`;
+      q("[data-catlist]").hidden = true;
       refreshTag(); syncWord();
     }));
     qa("[data-fx]").forEach((b) => b.addEventListener("click", () => {
@@ -324,68 +358,60 @@
       if (cat !== null && !q("[data-wordbox]").hidden && q("[data-word]").checked) { args.categoryId = cat; args.rememberWord = true; }
       await call("tx.update", args).then(() => { toast(t("saved")); opts.onDone("ok"); }).catch(fail);
     });
-    qa("[data-no]").forEach((b) => b.addEventListener("click", async () => {
-      if (x.status === "excluded") {
+    // Eliminar: un toque, sin preguntas. Se puede deshacer.
+    const remove = async (remember) => {
+      const prev = x.status;
+      await call("tx.update", { id: x.id, status: "excluded", description: q("[data-desc]").value, remember }).catch(fail);
+      toast(t("deleted"), t("undo"), async () => { await call("tx.update", { id: x.id, status: prev === "excluded" ? "pending" : prev }); toast(t("restored")); MG_refresh(); });
+      opts.onDone("excluded");
+    };
+    q("[data-no]").addEventListener("click", async () => {
+      if (excluded) {
         await call("tx.update", { id: x.id, status: "confirmed" }).catch(fail);
         return opts.onDone("ok");
       }
-      q("[data-main]").hidden = true; q("[data-more]").hidden = true; q(".link[data-more-toggle]").hidden = true;
-      q("[data-why]").hidden = false;
-    }));
-    q("[data-cancel]").addEventListener("click", () => {
-      q("[data-main]").hidden = false; q(".link[data-more-toggle]").hidden = false; q("[data-why]").hidden = true;
+      remove(false);
     });
-    qa("[data-reason]").forEach((b) => b.addEventListener("click", async () => {
-      await call("tx.update", { id: x.id, status: "excluded", reason: t(b.dataset.reason), description: q("[data-desc]").value,
-        remember: q("[data-remember]").checked, rememberWord: !q("[data-wordbox2]").hidden && q("[data-word2]").checked })
-        .then(() => { toast(t("not_counted")); opts.onDone("excluded"); }).catch(fail);
-    }));
-    const sk = q("[data-skip]");
-    if (sk) sk.addEventListener("click", () => opts.onDone("skip"));
+    const nv = q("[data-never]");
+    if (nv) nv.addEventListener("click", () => remove(true));
   }
 
   // ---------------------------------------------------------------- pendientes
   async function pending(onlyId) {
-    let items = await call("queue");
     const cats = await call("categories");
+    // Un gasto suelto (desde una notificación o enlace): se abre su tarjeta directamente.
     if (onlyId) {
       const all = (await call("list", { ym: null, group: "all" })).items;
-      items = items.filter((x) => x.id === onlyId).concat(all.filter((x) => x.id === onlyId)).slice(0, 1).map((x) => ({ ...x, kind: "tx" }));
+      const x = all.find((i) => i.id === onlyId);
+      app().innerHTML = backBar("#", monthLabel(ym || new Date().toISOString().slice(0, 7))) + `<div id="card"></div>`;
+      if (x) editor($("#card"), x, cats, { onDone: () => history.back() });
+      return;
     }
-    let i = 0;
-    app().innerHTML = backBar("#", monthLabel(ym || new Date().toISOString().slice(0, 7))) + `<div id="card"></div>`;
-    const el = $("#card");
-    const next = () => { i++; show(); };
-    function show() {
-      window.scrollTo(0, 0);
-      if (i >= items.length) {
-        el.innerHTML = `<div class="done">${ICON.check}<h1>${esc(t("all_done"))}</h1><a class="btn primary" href="#">${esc(t("back_home"))}</a></div>`;
-        return;
-      }
-      const it = items[i];
-      const count = items.length > 1 ? t("of", { i: i + 1, n: items.length }) : "";
-      if (it.kind === "tx") return editor(el, it, cats, { count, skip: items.length > 1, onDone: next });
-      if (it.kind === "yape") {
-        el.innerHTML = `<div class="card">
-          ${count ? `<div class="count">${esc(count)}</div>` : ""}
-          <h1 style="margin-top:28px">${esc(t("yape_title"))}</h1>
-          <p class="muted">${esc(t("yape_text"))} ${esc(it.last ? t("yape_last", { d: it.last }) : t("yape_never"))}</p>
-          <div class="hint">${esc(t("yape_how"))} ${esc(it.auto ? t("yape_auto") : t("yape_manual"))}</div>
-          <div class="actions"><button class="btn" data-later>${esc(t("yape_asked"))}</button><a class="btn primary" href="#import">${esc(t("upload_excel"))}</a></div></div>`;
-        el.querySelector("[data-later]").addEventListener("click", next);
-        return;
-      }
-      if (it.kind === "email") {
-        el.innerHTML = `<div class="card">
-          ${count ? `<div class="count">${esc(count)}</div>` : ""}
-          <h1 style="margin-top:28px">${esc(t("email_title"))}</h1>
-          <p class="who" style="font-weight:500">${esc(it.subject)}</p>
-          <p class="muted">${esc(t("email_text"))}</p>
-          <div class="actions"><button class="btn" data-later>${esc(t("skip"))}</button><a class="btn primary" href="#email/${encodeURIComponent(it.id)}">${esc(t("review"))}</a></div></div>`;
-        el.querySelector("[data-later]").addEventListener("click", next);
-      }
-    }
-    show();
+    // Por revisar: una lista normal. Nada es obligatorio; se toca lo que se quiera.
+    const items = await call("queue");
+    const txs = items.filter((i) => i.kind === "tx");
+    const rowTx = (x) => `
+      <button class="row" data-id="${x.id}">
+        <span class="name"><b>${esc(x.who)}</b><small>${esc(x.description || whenLabel(x.when))}</small></span>
+        <span class="amt num">${money(x.amountPen ?? x.amount)}</span>
+      </button>`;
+    app().innerHTML = backBar("#", monthLabel(ym || new Date().toISOString().slice(0, 7))) + `
+      <h1>${esc(t("to_review"))}</h1>
+      ${items.filter((i) => i.kind === "yape").map((i) => `
+        <a class="row" href="#import"><span class="name"><b>${esc(t("yape_title"))}</b>
+          <small>${esc(i.last ? t("yape_last", { d: i.last }) : t("yape_never"))}</small></span>${ICON.right}</a>`).join("")}
+      ${items.filter((i) => i.kind === "email").map((i) => `
+        <a class="row" href="#email/${encodeURIComponent(i.id)}"><span class="name"><b>${esc(t("email_title"))}</b>
+          <small>${esc(i.subject)}</small></span>${ICON.right}</a>`).join("")}
+      <div id="txs">${txs.map(rowTx).join("")}</div>
+      ${items.length ? "" : `<div class="done">${ICON.check}<h1>${esc(t("all_done"))}</h1></div>`}`;
+    app().querySelectorAll("[data-id]").forEach((b) => b.addEventListener("click", () => {
+      const x = txs.find((i) => i.id === Number(b.dataset.id));
+      const el = document.createElement("div");
+      const close = sheet("");
+      $(".sheet").appendChild(el);
+      editor(el, x, cats, { onDone: () => { close(); b.remove(); } });
+    }));
   }
 
   // ---------------------------------------------------------------- correo sin reconocer
