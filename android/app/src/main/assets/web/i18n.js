@@ -3,7 +3,7 @@ window.I18N = {
   es: {
     months: ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
     days: ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"],
-    spent: "gastado", spent_this_month: "Este mes · {m}", spent_in: "Gastado en {m}", back_to_now: "Volver a este mes",
+    spent: "gastado", spent_this_month: "Este mes · {m}", spent_in: "Gastado en {m}", back_to_now: "Volver a este mes", see_email: "Ver correo",
     more: "más", less: "menos", than_in: "que en {m}",
     pending_1: "1 por revisar", pending_n: "{n} por revisar",
     fixed: "Fijos", variable: "Variables", fixed_one: "Fijo", variable_one: "Variable",
@@ -89,7 +89,7 @@ window.I18N = {
   en: {
     months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
     days: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-    spent: "spent", spent_this_month: "This month · {m}", spent_in: "Spent in {m}", back_to_now: "Back to this month",
+    spent: "spent", spent_this_month: "This month · {m}", spent_in: "Spent in {m}", back_to_now: "Back to this month", see_email: "View email",
     more: "more", less: "less", than_in: "than in {m}",
     pending_1: "1 to review", pending_n: "{n} to review",
     fixed: "Fixed", variable: "Variable", fixed_one: "Fixed", variable_one: "Variable",

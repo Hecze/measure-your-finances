@@ -169,3 +169,4 @@ pre.body { white-space: pre-wrap; word-break: break-word; background: var(--soft
 .pie-c b { font-size: 1.2rem; font-weight: 700; }
 .pie-c small { color: var(--muted); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.ed-mail { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; color: var(--accent); font-size: .88rem; font-weight: 600; }

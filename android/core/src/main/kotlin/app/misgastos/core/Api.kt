@@ -172,6 +172,15 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
     fun hasEmail() = ledger.data.settings.email.isNotBlank() && !secrets.get("imap").isNullOrBlank()
 
     // ------------------------------------------------------------------ vistas
+    /** Enlace al correo exacto en Gmail (búsqueda por Message-ID). Null si no vino de un correo leído por IMAP. */
+    fun mailUrl(emailId: String?): String? {
+        val id = emailId?.trim()?.removePrefix("<")?.removeSuffix(">") ?: return null
+        if (!id.contains("@")) return null
+        val enc = { v: String -> java.net.URLEncoder.encode(v, "UTF-8").replace("+", "%20") }
+        val user = ledger.data.settings.email
+        return "https://mail.google.com/mail/" + (if (user.isNotBlank()) "?authuser=" + enc(user) else "") + "#search/" + enc("rfc822msgid:$id")
+    }
+
     fun txView(t: Tx): JSONObject {
         val o = JSONObject()
             .put("id", t.id).put("amount", t.amount).put("currency", t.currency).put("who", ledger.displayName(t))
@@ -183,6 +192,7 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
             .put("installments", t.installments).put("installment", t.installmentLabel)
             .put("credit", t.accountDetail.contains("Crédito"))
             .put("amountPen", Math.round(ledger.pen(t) * 100) / 100.0) // vista unificada en soles
+        mailUrl(t.emailId)?.let { o.put("mailUrl", it) }
         ledger.hint(t)?.let { (code, params) -> o.put("hint", JSONObject().put("code", code).put("params", JSONObject(params))) }
         return o
     }
