@@ -93,7 +93,7 @@
     el.innerHTML = esc(msg) + (action ? ` <button class="toast-btn">${esc(action)}</button>` : "");
     if (action) el.querySelector(".toast-btn").onclick = () => { el.classList.remove("show"); onAction(); };
     el.classList.add("show");
-    clearTimeout(el._h); el._h = setTimeout(() => el.classList.remove("show"), action ? 4500 : 1800);
+    clearTimeout(el._h); el._h = setTimeout(() => el.classList.remove("show"), action ? 4500 : 3000);
   }
   const fail = (e) => toast(e && e.message && L["err_" + e.message] ? t("err_" + e.message) : t("error"));
 
@@ -645,7 +645,9 @@
       onProgress = (i, n) => { st.textContent = t("reading", { i, n }); };
       try {
         const r = await call("sync");
-        st.className = "status ok"; st.textContent = t("read_result", r) + (r.failed ? "\n" + t("read_failed", { n: r.failed }) : "");
+        // Listo: a la pantalla principal, con el resultado en un aviso corto.
+        toast(t("read_result", r) + (r.failed ? " · " + t("read_failed", { n: r.failed }) : ""));
+        location.hash = "#home";
       } catch (e) {
         const [code, detail] = String(e.message || "").split("|");
         st.className = "status err";

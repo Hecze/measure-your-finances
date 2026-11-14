@@ -21,9 +21,7 @@ class Bridge(private val activity: MainActivity, private val web: WebView) {
         pool.execute {
             val result = try {
                 when (method) {
-                    "sync" -> wrap {
-                        api.syncEmail { i, n -> js("window.MG_progress && MG_progress($i,$n)") }
-                    }
+                    "sync" -> wrap { awake { api.syncEmail { i, n -> js("window.MG_progress && MG_progress($i,$n)") } } }
                     "native.share" -> wrap { share(JSONObject(args)); null }
                     "native.clipboard" -> wrap { clipboardText() }
                     else -> api.call(method, args)
@@ -33,6 +31,14 @@ class Bridge(private val activity: MainActivity, private val web: WebView) {
             }
             js("MG_resolve($id, ${JSONObject.quote(result)})")
         }
+    }
+
+    /** Mantiene el procesador despierto mientras se leen los correos (si la pantalla se apaga, sigue). */
+    private fun <T> awake(block: () -> T): T {
+        val pm = activity.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        val lock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "misgastos:sync")
+        lock.acquire(10 * 60 * 1000L)
+        try { return block() } finally { if (lock.isHeld) lock.release() }
     }
 
     private fun wrap(block: () -> Any?): String = try {

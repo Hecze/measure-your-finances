@@ -39,7 +39,8 @@ object Imap {
      * el procesamiento se hace después (así la app no se congela mientras descarga).
      */
     fun fetch(host: String, user: String, password: String, senders: List<String>, daysBack: Int, known: Set<String>,
-              onProgress: (Int, Int) -> Unit = { _, _ -> }): List<IncomingEmail> {
+              onProgress: (Int, Int) -> Unit = { _, _ -> },
+              onBatch: (List<IncomingEmail>) -> Unit = {}): List<IncomingEmail> {
         val props = Properties().apply {
             put("mail.store.protocol", "imaps")
             put("mail.imaps.host", host)
@@ -48,6 +49,7 @@ object Imap {
             put("mail.imaps.connectiontimeout", "20000")
             put("mail.imaps.timeout", "60000")
             put("mail.imaps.partialfetch", "false")
+            put("mail.imaps.fetchsize", "1048576")
         }
         val store = Session.getInstance(props).getStore("imaps")
         try {
@@ -64,19 +66,30 @@ object Imap {
             val since = Date.from(LocalDateTime.now().minusDays(daysBack.toLong()).atZone(ZoneId.systemDefault()).toInstant())
             val from: SearchTerm = OrTerm(senders.map { FromStringTerm(it) as SearchTerm }.toTypedArray())
             val msgs = folder.search(AndTerm(ReceivedDateTerm(ComparisonTerm.GE, since), from))
+            // 1) Una sola petición para saber qué correos ya teníamos (solo encabezados).
             folder.fetch(msgs, FetchProfile().apply { add(FetchProfile.Item.ENVELOPE); add("Message-ID") })
+            val pending = msgs.mapNotNull { m ->
+                val id = m.getHeader("Message-ID")?.firstOrNull() ?: "noid-${m.receivedDate?.time}-${m.subject}"
+                if (id in known) null else m to id
+            }
+            // 2) Los nuevos se bajan completos por tandas (una petición por tanda, no una por correo),
+            //    y cada tanda se guarda al momento: si el celular corta la conexión, no se pierde lo ya leído.
             val out = mutableListOf<IncomingEmail>()
             failed = 0
-            for ((i, m) in msgs.withIndex()) {
-                onProgress(i + 1, msgs.size)
-                val id = m.getHeader("Message-ID")?.firstOrNull() ?: "noid-${m.receivedDate?.time}-${m.subject}"
-                if (id in known) continue
-                // Un correo raro no debe frenar la lectura de los demás.
-                try {
-                    out += toIncoming(m, id)
-                } catch (e: Exception) {
-                    failed++
+            var done = 0
+            onProgress(0, pending.size)
+            for (chunk in pending.chunked(BATCH)) {
+                val arr = chunk.map { it.first }.toTypedArray()
+                runCatching { folder.fetch(arr, FetchProfile().apply { add(com.sun.mail.imap.IMAPFolder.FetchProfileItem.MESSAGE) }) }
+                val batch = mutableListOf<IncomingEmail>()
+                for ((m, id) in chunk) {
+                    // Un correo raro no debe frenar la lectura de los demás.
+                    try { batch += toIncoming(m, id) } catch (e: Exception) { failed++ }
                 }
+                done += chunk.size
+                onBatch(batch)
+                out += batch
+                onProgress(done, pending.size)
             }
             folder.close(false)
             return out
@@ -84,6 +97,8 @@ object Imap {
             store.close()
         }
     }
+
+    private const val BATCH = 25
 
     /** En Gmail, "Todos" (\All) incluye lo archivado. Si no existe, INBOX. */
     private fun allMailFolder(store: javax.mail.Store): Folder {

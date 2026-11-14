@@ -314,27 +314,35 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
         val pass = secrets.get("imap")
         val (s, known) = synchronized(lock) { ledger.data.settings to ledger.data.emails.keys.toSet() }
         if (s.email.isBlank() || pass.isNullOrBlank()) throw Exception("no_email")
+        var newExp = 0; var unknown = 0; var imported = 0
+        // Cada tanda se procesa y se guarda apenas llega (si se corta a la mitad, lo leído queda).
+        val onBatch: (List<IncomingEmail>) -> Unit = { batch ->
+            synchronized(lock) {
+                for (m in batch) {
+                    val r = ledger.processEmail(m, refresh = false)
+                    when (r.decision) {
+                        "expense" -> if (r.txState == Ledger.AddState.NEW) newExp++
+                        "unknown" -> unknown++
+                        "import" -> imported += r.imported?.get("gasto_nuevo") ?: 0
+                    }
+                }
+                ledger.refreshAll()
+                storage.save(ledger.data.toJson())
+            }
+        }
         val mails = try {
-            Imap.fetch(s.imapHost, s.email, pass, s.senders, s.daysBack, known, onProgress)
+            Imap.fetch(s.imapHost, s.email, pass, s.senders, s.daysBack, known, onProgress, onBatch)
         } catch (e: Exception) {
             // Mensaje claro: "auth|..." (contraseña), "connect|..." (red/servidor) o "read|..." (al leer los correos).
             val msg = if (e is Imap.ImapException) e.message ?: "error" else "read|" + (e.javaClass.simpleName + ": " + (e.message ?: "")).take(200)
             synchronized(lock) {
+                ledger.refreshAll()
                 s.lastSync = Text.fmt(now()); s.lastSyncOk = false; s.lastSyncResult = msg
                 storage.save(ledger.data.toJson())
             }
             throw Exception(msg)
         }
-        var newExp = 0; var unknown = 0; var imported = 0
         synchronized(lock) {
-            for (m in mails) {
-                val r = ledger.processEmail(m, refresh = false)
-                when (r.decision) {
-                    "expense" -> if (r.txState == Ledger.AddState.NEW) newExp++
-                    "unknown" -> unknown++
-                    "import" -> imported += r.imported?.get("gasto_nuevo") ?: 0
-                }
-            }
             ledger.refreshAll()
             s.lastSync = Text.fmt(now()); s.lastSyncOk = true
             s.lastSyncResult = JSONObject().put("read", mails.size).put("new", newExp + imported).put("unknown", unknown).toString()
