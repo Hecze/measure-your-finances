@@ -4,7 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
+import androidx.security.crypto.MasterKeys
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -58,8 +58,9 @@ class FileStorage(private val file: File) : Storage {
 /** Contraseña de Gmail y API key de IA, cifradas con el Keystore de Android. */
 class EncryptedSecrets(ctx: Context) : Secrets {
     private val prefs: SharedPreferences = EncryptedSharedPreferences.create(
-        ctx, "secrets",
-        MasterKey.Builder(ctx).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+        "secrets",
+        MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC),
+        ctx,
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
     )
