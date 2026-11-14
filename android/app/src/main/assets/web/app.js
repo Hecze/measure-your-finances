@@ -149,6 +149,7 @@
     } else {
       body = `
         <div class="hero">
+          <div class="hero-month">${esc(d.nextYm ? t("spent_in", { m: monthLabel(d.ym) }) : t("spent_this_month", { m: monthLabel(d.ym) }))}</div>
           <div class="total num">${money(d.total)}</div>
           <div class="sub">${delta !== null ? `<span class="${delta > 0 ? "up" : "down"}">${Math.abs(delta)}% ${esc(delta > 0 ? t("more") : t("less"))}</span> ${esc(t("than_in", { m: prevName }))}` : esc(t("spent"))}</div>
         </div>
@@ -156,7 +157,8 @@
         <div class="split">
           ${d.count ? groupRow("fixed", d.fixed, d.fixedN) + groupRow("variable", d.variable, d.variableN) : `<p class="empty">${esc(t("empty_month"))}</p>`}
         </div>
-        ${d.count ? `<a class="more" href="#list/all">${esc(t("see_all"))}</a>` : ""}`;
+        ${d.count ? `<a class="more" href="#list/all">${esc(t("see_all"))}</a>` : ""}
+        ${d.nextYm ? `<button class="more" id="now">${esc(t("back_to_now"))}</button>` : ""}`;
     }
     app().innerHTML = topBar(`
       <div class="month">
@@ -165,6 +167,9 @@
         <button data-m="${d.nextYm || ""}" ${d.nextYm ? "" : "disabled"} aria-label="next">${ICON.right}</button>
       </div>`) + body;
     app().querySelectorAll("[data-m]").forEach((b) => b.addEventListener("click", () => { if (b.dataset.m) { ym = b.dataset.m; home(); } }));
+    const now = $("#now");
+    if (now) now.addEventListener("click", () => { ym = null; home(); });
+    document.body.classList.toggle("past", !!d.nextYm);
     if (d.noDesc > 0) maybeTip(d.noDesc);
   }
 
@@ -188,17 +193,29 @@
     const backHref = group.startsWith("cat:") || group === "none" ? "#list/variable" : "#";
     let breakdown = "";
     if (d.breakdown) {
-      const max = Math.max(1, ...d.breakdown.map((b) => b.total), d.unclassified ? d.unclassified.total : 0);
-      breakdown = d.breakdown.map((b) => `
-        <a class="row" href="#list/cat:${b.id}">${catIcon(b.id)}
-          <span class="name" style="flex:1"><b>${esc(b.name)}</b><span class="bar" style="display:block"><i style="width:${(100 * b.total) / max}%"></i></span></span>
-          <span class="amt num">${money(b.total)}</span></a>`).join("") +
-        (d.unclassified ? `<a class="row dim" href="#list/none">${catIcon(null)}<span class="name" style="flex:1"><b style="font-weight:500">${esc(t("unclassified"))}</b>
-          <small>${esc(t("payments_n", { n: d.unclassified.n }))}</small></span><span class="amt num">${money(d.unclassified.total)}</span></a>` : "");
+      // Dona de categorías. El color sigue a la categoría (su posición en la lista), no al tamaño del trozo.
+      const slices = d.breakdown.map((b) => {
+        const k = cats.findIndex((c) => c.id === b.id);
+        return { id: b.id, name: b.name, total: b.total, color: k >= 0 && k < 8 ? `var(--s${k + 1})` : "var(--s-other)", href: "#list/cat:" + b.id };
+      });
+      if (d.unclassified) slices.push({ id: null, name: t("unclassified"), total: d.unclassified.total, color: "var(--s-other)", href: "#list/none" });
+      const sum = slices.reduce((a, x) => a + x.total, 0) || 1;
+      breakdown = `<div class="pie">${donut(slices, sum)}<div class="pie-c"><b class="num" id="pv">${money(d.total)}</b><small id="pn">${esc(t("variable"))}</small></div></div>` +
+        slices.map((x, i) => `
+        <a class="row ${x.id === null ? "dim" : ""}" href="${x.href}" data-s="${i}"><i class="dot" style="background:${x.color}"></i>
+          <span class="name" style="flex:1"><b ${x.id === null ? 'style="font-weight:500"' : ""}>${esc(x.name)}</b></span>
+          <span class="muted num" style="font-size:.85rem">${Math.round((100 * x.total) / sum)}%</span>
+          <span class="amt num">${money(x.total)}</span></a>`).join("");
       breakdown = `<div>${breakdown}</div><h2>${esc(t("all_expenses"))}</h2>`;
+      setTimeout(() => app().querySelectorAll("[data-slice]").forEach((p) => p.addEventListener("click", () => {
+        const x = slices[Number(p.dataset.slice)];
+        app().querySelectorAll("[data-slice]").forEach((q) => q.classList.toggle("on", q === p));
+        $("#pv").textContent = money(x.total); $("#pn").textContent = x.name;
+      })));
     }
     app().innerHTML = backBar(backHref, group.startsWith("cat:") || group === "none" ? t("variable") : monthLabel(d.ym)) + `
-      <h1>${esc(title)}</h1>
+      <div class="hero-month">${esc(monthLabel(d.ym))}</div>
+      <h1 style="margin-top:2px">${esc(title)}</h1>
       <div class="total num" style="font-size:2rem;margin-bottom:8px">${money(d.total)}</div>
       ${breakdown}
       <div id="items"></div>
@@ -232,6 +249,22 @@
     }));
     const add = $("[data-add]");
     if (add) add.addEventListener("click", addCash);
+  }
+
+  /** Dona en SVG: trozos con 2px de separación (el color de fondo), toque para ver el monto. */
+  function donut(slices, sum) {
+    const R = 80, r = 52, C = 100;
+    let a0 = -Math.PI / 2;
+    const pt = (rad, a) => `${(C + rad * Math.cos(a)).toFixed(2)} ${(C + rad * Math.sin(a)).toFixed(2)}`;
+    const paths = slices.map((x, i) => {
+      const frac = x.total / sum;
+      if (frac >= 0.9999) return `<circle data-slice="${i}" cx="${C}" cy="${C}" r="${(R + r) / 2}" fill="none" stroke="${x.color}" stroke-width="${R - r}"/>`;
+      const a1 = a0 + frac * 2 * Math.PI, big = frac > 0.5 ? 1 : 0;
+      const d = `M${pt(R, a0)} A${R} ${R} 0 ${big} 1 ${pt(R, a1)} L${pt(r, a1)} A${r} ${r} 0 ${big} 0 ${pt(r, a0)}Z`;
+      a0 = a1;
+      return `<path data-slice="${i}" d="${d}" fill="${x.color}"/>`;
+    }).join("");
+    return `<svg viewBox="0 0 200 200" class="pie-svg" role="img" aria-label="${esc(t("variable"))}">${paths}</svg>`;
   }
 
   function addCash() {

@@ -1,11 +1,13 @@
 :root {
   --bg: #ffffff; --text: #111113; --muted: #86868b; --line: #ececee; --soft: #f4f4f6;
   --accent: #5b21b6; --on-accent: #ffffff; --good: #15803d; --bad: #c2410c;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948; --s-other: #b4b4ba;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #0b0b0d; --text: #f2f2f4; --muted: #8c8c94; --line: #222226; --soft: #17171a;
-          --accent: #a78bfa; --on-accent: #120a24; --good: #4ade80; --bad: #fb923c; color-scheme: dark; }
+          --accent: #a78bfa; --on-accent: #120a24; --good: #4ade80; --bad: #fb923c; color-scheme: dark;
+          --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767; --s-other: #55555c; }
 }
 [hidden] { display: none !important; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -34,6 +36,9 @@ p { margin: 0 0 12px; }
 
 /* inicio */
 .hero { margin: 26px 0 4px; }
+.hero-month { font-size: .95rem; font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+.month span { color: var(--text); font-weight: 600; }
+body.past .top .month { background: var(--soft); border-radius: 12px; }
 .total { font-size: 3rem; font-weight: 760; letter-spacing: -.035em; line-height: 1.02; }
 .sub { color: var(--muted); margin-top: 10px; font-size: .95rem; }
 .up { color: var(--bad); } .down { color: var(--good); }
@@ -153,3 +158,14 @@ pre.body { white-space: pre-wrap; word-break: break-word; background: var(--soft
 .pw { position: relative; }
 .pw input { padding-right: 50px; }
 .pw .iconbtn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+
+/* dona de categorías */
+.pie { position: relative; width: 210px; max-width: 70vw; margin: 8px auto 14px; }
+.pie-svg { display: block; width: 100%; height: auto; }
+.pie-svg path, .pie-svg circle { stroke: var(--bg); stroke-width: 2px; cursor: pointer; transition: opacity .15s; }
+.pie-svg circle { stroke-width: 28px; }
+.pie-svg:has(.on) [data-slice]:not(.on) { opacity: .35; }
+.pie-c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; text-align: center; padding: 0 60px; }
+.pie-c b { font-size: 1.2rem; font-weight: 700; }
+.pie-c small { color: var(--muted); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
