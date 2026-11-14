@@ -226,100 +226,122 @@
     return t("hint_" + h.code, h.params || {});
   }
 
+  // Señales de que quizás no es un gasto: ahí "No es gasto" se muestra junto a Listo.
+  const DOUBT = new Set(["passthrough", "reciprocal", "cash", "transfer"]);
+
   function editor(el, x, cats, opts) {
     let cat = x.categoryId;
     let fixed = x.fixed;
-    const draw = () => {
-      el.innerHTML = `
-        <div class="card">
-          ${opts.count ? `<div class="count">${esc(opts.count)}</div>` : ""}
-          <div class="amount num" data-amount title="${esc(t("edit_amount"))}">${money(x.amount, x.currency)}</div>
-          ${x.currency === "USD" ? `<div class="when">≈ ${money(x.amountPen)}</div>` : ""}
-          ${x.installment ? `<div class="when">${esc(t("installment", { k: x.installment }))}</div>` : ""}
-          <div class="who">${esc(x.who)}</div>
-          <div class="when">${esc(whenLabel(x.when))}${x.account ? " · " + esc(x.account) : ""}</div>
-          ${x.hint ? `<div class="hint">${esc(hintText(x.hint))}</div>` : ""}
-          <div class="ask">
-            <input data-desc placeholder="${esc(t("what_for"))}" value="${esc(x.description)}" autocomplete="off" enterkeyhint="done">
-            ${x.credit ? `<select data-inst style="margin-top:12px">${[1, 2, 3, 4, 5, 6, 8, 10, 12, 18, 24, 36].map((n) =>
-              `<option value="${n}" ${n === (x.installments || 1) ? "selected" : ""}>${esc(n === 1 ? t("single_payment") : t("n_installments", { n }))}</option>`).join("")}</select>` : ""}
-            <div class="seg"><button data-fx="1" class="${fixed ? "on" : ""}">${esc(t("fixed_one"))}</button><button data-fx="0" class="${fixed ? "" : "on"}">${esc(t("variable_one"))}</button></div>
-            <div class="chips">${cats.map((c) => `<button class="chip ${c.id === cat ? "on" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("")}</div>
-            <label class="check" data-wordbox hidden><input type="checkbox" data-word> <span data-wordlabel></span></label>
-            ${x.categorySource === "persona" && cat === x.categoryId ? `<div class="note">${esc(t("suggested_person"))}</div>` : ""}
-            ${x.categorySource === "ia" && cat === x.categoryId ? `<div class="note">${esc(t("suggested_ai"))}</div>` : ""}
-          </div>
-          <div class="actions" data-main>
-            <button class="btn" data-no>${esc(x.status === "excluded" ? t("is_expense") : t("not_expense"))}</button>
-            <button class="btn primary" data-ok>${esc(t("done"))}</button>
-          </div>
-          <div data-why hidden>
-            <p class="muted" style="margin:24px 0 0">${esc(t("why_not"))}</p>
-            <div class="chips">${["reason_cash", "reason_pass", "reason_own", "reason_loan"].map((r) => `<button class="chip" data-reason="${r}">${esc(t(r))}</button>`).join("")}</div>
-            <label class="check"><input type="checkbox" data-remember> ${esc(t("never_count", { who: x.who }))}</label>
-            <label class="check" data-wordbox2 hidden><input type="checkbox" data-word2> <span data-wordlabel2></span></label>
-            <button class="link" data-cancel>${esc(t("cancel"))}</button>
-          </div>
-          ${opts.skip ? `<button class="link" data-skip>${esc(t("skip"))}</button>` : ""}
-        </div>`;
-      const q = (s) => el.querySelector(s);
-      // Monto editable: tocarlo lo convierte en un campo (para el caso raro de haber pagado por otros).
-      let newAmount = null;
-      q("[data-amount]").addEventListener("click", () => {
-        if (q("[data-amount] input")) return;
-        q("[data-amount]").innerHTML = `<input type="number" inputmode="decimal" step="0.01" min="0" value="${x.amount}" style="font-size:2rem;text-align:center;font-weight:700">`;
-        const inp = q("[data-amount] input");
-        inp.focus(); inp.select();
-        inp.addEventListener("input", () => { const v = parseFloat(inp.value); newAmount = v > 0 ? v : null; });
-      });
-      // "Siempre que diga ..." solo para descripciones cortas (una palabra o frase breve).
-      const shortWord = () => { const d = q("[data-desc]").value.trim(); return d && d.split(/\s+/).length <= 3 ? d : ""; };
-      const syncWord = () => {
-        const w = shortWord();
-        q("[data-wordbox]").hidden = !w || cat === null;
-        q("[data-wordlabel]").textContent = t("always_word", { w });
-        q("[data-wordbox2]").hidden = !w;
-        q("[data-wordlabel2]").textContent = t("always_word_not", { w });
-      };
-      q("[data-desc]").addEventListener("input", syncWord);
-      el.querySelectorAll("[data-cat]").forEach((b) => b.addEventListener("click", () => setTimeout(syncWord)));
-      syncWord();
-      el.querySelectorAll("[data-cat]").forEach((b) => b.addEventListener("click", () => {
-        const id = Number(b.dataset.cat);
-        cat = cat === id ? null : id;
-        el.querySelectorAll("[data-cat]").forEach((y) => y.classList.toggle("on", Number(y.dataset.cat) === cat));
-      }));
-      el.querySelectorAll("[data-fx]").forEach((b) => b.addEventListener("click", () => {
-        fixed = b.dataset.fx === "1";
-        el.querySelectorAll("[data-fx]").forEach((y) => y.classList.toggle("on", y === b));
-      }));
-      q("[data-desc]").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); q("[data-ok]").click(); } });
-      q("[data-ok]").addEventListener("click", async () => {
-        const args = { id: x.id, status: "confirmed", description: q("[data-desc]").value };
-        if (cat !== x.categoryId || x.categorySource === "persona" || x.categorySource === "ia") args.categoryId = cat;
-        if (fixed !== x.fixed) args.fixed = fixed;
-        if (newAmount !== null && newAmount !== x.amount) args.amount = newAmount;
-        const inst = q("[data-inst]");
-        if (inst && Number(inst.value) !== (x.installments || 1)) args.installments = Number(inst.value);
-        if (cat !== null && !q("[data-wordbox]").hidden && q("[data-word]").checked) { args.categoryId = cat; args.rememberWord = true; }
-        await call("tx.update", args).then(() => { toast(t("saved")); opts.onDone("ok"); }).catch(fail);
-      });
-      q("[data-no]").addEventListener("click", async () => {
-        if (x.status === "excluded") {
-          await call("tx.update", { id: x.id, status: "confirmed" }).catch(fail);
-          return opts.onDone("ok");
-        }
-        q("[data-main]").hidden = true; q("[data-why]").hidden = false;
-      });
-      q("[data-cancel]").addEventListener("click", () => { q("[data-main]").hidden = false; q("[data-why]").hidden = true; });
-      el.querySelectorAll("[data-reason]").forEach((b) => b.addEventListener("click", async () => {
-        await call("tx.update", { id: x.id, status: "excluded", reason: t(b.dataset.reason), description: q("[data-desc]").value,
-          remember: q("[data-remember]").checked, rememberWord: !q("[data-wordbox2]").hidden && q("[data-word2]").checked }).then(() => { toast(t("not_counted")); opts.onDone("excluded"); }).catch(fail);
-      }));
-      const sk = q("[data-skip]");
-      if (sk) sk.addEventListener("click", () => opts.onDone("skip"));
+    let newAmount = null;
+    const catName = () => (cats.find((c) => c.id === cat) || {}).name;
+    const summary = () => [catName(), fixed ? t("fixed_one") : t("variable_one"),
+      x.installments > 1 ? t("n_installments", { n: x.installments }) : ""].filter(Boolean).join(" · ");
+    const doubt = x.hint && DOUBT.has(x.hint.code);
+
+    el.innerHTML = `
+      <div class="ed">
+        ${opts.count ? `<div class="ed-count">${esc(opts.count)}</div>` : ""}
+        <div class="ed-head">
+          <div class="ed-amount num" data-amount>${money(x.amount, x.currency)}</div>
+          ${x.currency === "USD" ? `<div class="ed-sub">≈ ${money(x.amountPen)}</div>` : ""}
+          <div class="ed-who">${esc(x.who)}</div>
+          <div class="ed-sub">${esc(whenLabel(x.when))}${x.installment ? " · " + esc(t("installment", { k: x.installment })) : ""}</div>
+          <button class="ed-tag" data-more-toggle>${esc(summary())}</button>
+        </div>
+        ${x.hint ? `<div class="ed-hint">${esc(hintText(x.hint))}</div>` : ""}
+        <input class="ed-input" data-desc placeholder="${esc(t("what_for"))}" value="${esc(x.description)}" autocomplete="off" enterkeyhint="done">
+        <div class="ed-actions ${doubt || x.status === "excluded" ? "two" : ""}" data-main>
+          ${doubt || x.status === "excluded" ? `<button class="btn" data-no>${esc(x.status === "excluded" ? t("is_expense") : t("not_expense"))}</button>` : ""}
+          <button class="btn primary" data-ok>${esc(t("done"))}</button>
+        </div>
+        <button class="link" data-more-toggle>${esc(t("more_options"))}</button>
+        <div class="ed-more" data-more hidden>
+          <div class="ed-label">${esc(t("category"))}</div>
+          <div class="chips">${cats.map((c) => `<button class="chip ${c.id === cat ? "on" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("")}</div>
+          <label class="check" data-wordbox hidden><input type="checkbox" data-word> <span data-wordlabel></span></label>
+          <div class="ed-label">${esc(t("type"))}</div>
+          <div class="seg"><button data-fx="1" class="${fixed ? "on" : ""}">${esc(t("fixed_one"))}</button><button data-fx="0" class="${fixed ? "" : "on"}">${esc(t("variable_one"))}</button></div>
+          ${x.credit ? `<div class="ed-label">${esc(t("payment"))}</div><select data-inst>${[1, 2, 3, 4, 5, 6, 8, 10, 12, 18, 24, 36].map((n) =>
+            `<option value="${n}" ${n === (x.installments || 1) ? "selected" : ""}>${esc(n === 1 ? t("single_payment") : t("n_installments", { n }))}</option>`).join("")}</select>` : ""}
+          ${!doubt && x.status !== "excluded" ? `<button class="link danger" data-no>${esc(t("not_expense"))}</button>` : ""}
+        </div>
+        <div class="ed-why" data-why hidden>
+          <div class="ed-label">${esc(t("why_not"))}</div>
+          <div class="chips">${["reason_cash", "reason_pass", "reason_own", "reason_loan"].map((r) => `<button class="chip" data-reason="${r}">${esc(t(r))}</button>`).join("")}</div>
+          <label class="check"><input type="checkbox" data-remember> ${esc(t("never_count", { who: x.who }))}</label>
+          <label class="check" data-wordbox2 hidden><input type="checkbox" data-word2> <span data-wordlabel2></span></label>
+          <button class="link" data-cancel>${esc(t("cancel"))}</button>
+        </div>
+        ${opts.skip ? `<button class="link" data-skip>${esc(t("skip"))}</button>` : ""}
+      </div>`;
+
+    const q = (s) => el.querySelector(s);
+    const qa = (s) => el.querySelectorAll(s);
+    const refreshTag = () => qa(".ed-tag").forEach((b) => { b.textContent = summary(); });
+
+    // Monto editable: tocarlo lo convierte en un campo.
+    q("[data-amount]").addEventListener("click", () => {
+      if (q("[data-amount] input")) return;
+      q("[data-amount]").innerHTML = `<input type="number" inputmode="decimal" step="0.01" min="0" value="${x.amount}">`;
+      const inp = q("[data-amount] input");
+      inp.focus(); inp.select();
+      inp.addEventListener("input", () => { const v = parseFloat(inp.value); newAmount = v > 0 ? v : null; });
+    });
+    qa("[data-more-toggle]").forEach((b) => b.addEventListener("click", () => {
+      const m = q("[data-more]"); m.hidden = !m.hidden;
+      q(".link[data-more-toggle]").textContent = m.hidden ? t("more_options") : t("less_options");
+    }));
+    const shortWord = () => { const d = q("[data-desc]").value.trim(); return d && d.split(/\s+/).length <= 3 ? d : ""; };
+    const syncWord = () => {
+      const w = shortWord();
+      q("[data-wordbox]").hidden = !w || cat === null;
+      q("[data-wordlabel]").textContent = t("always_word", { w });
+      q("[data-wordbox2]").hidden = !w;
+      q("[data-wordlabel2]").textContent = t("always_word_not", { w });
     };
-    draw();
+    q("[data-desc]").addEventListener("input", syncWord);
+    q("[data-desc]").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); q("[data-ok]").click(); } });
+    qa("[data-cat]").forEach((b) => b.addEventListener("click", () => {
+      const id = Number(b.dataset.cat);
+      cat = cat === id ? null : id;
+      qa("[data-cat]").forEach((y) => y.classList.toggle("on", Number(y.dataset.cat) === cat));
+      refreshTag(); syncWord();
+    }));
+    qa("[data-fx]").forEach((b) => b.addEventListener("click", () => {
+      fixed = b.dataset.fx === "1";
+      qa("[data-fx]").forEach((y) => y.classList.toggle("on", y === b));
+      refreshTag();
+    }));
+    syncWord();
+
+    q("[data-ok]").addEventListener("click", async () => {
+      const args = { id: x.id, status: "confirmed", description: q("[data-desc]").value };
+      if (cat !== x.categoryId || x.categorySource === "persona" || x.categorySource === "ia") args.categoryId = cat;
+      if (fixed !== x.fixed) args.fixed = fixed;
+      if (newAmount !== null && newAmount !== x.amount) args.amount = newAmount;
+      const inst = q("[data-inst]");
+      if (inst && Number(inst.value) !== (x.installments || 1)) args.installments = Number(inst.value);
+      if (cat !== null && !q("[data-wordbox]").hidden && q("[data-word]").checked) { args.categoryId = cat; args.rememberWord = true; }
+      await call("tx.update", args).then(() => { toast(t("saved")); opts.onDone("ok"); }).catch(fail);
+    });
+    qa("[data-no]").forEach((b) => b.addEventListener("click", async () => {
+      if (x.status === "excluded") {
+        await call("tx.update", { id: x.id, status: "confirmed" }).catch(fail);
+        return opts.onDone("ok");
+      }
+      q("[data-main]").hidden = true; q("[data-more]").hidden = true; q(".link[data-more-toggle]").hidden = true;
+      q("[data-why]").hidden = false;
+    }));
+    q("[data-cancel]").addEventListener("click", () => {
+      q("[data-main]").hidden = false; q(".link[data-more-toggle]").hidden = false; q("[data-why]").hidden = true;
+    });
+    qa("[data-reason]").forEach((b) => b.addEventListener("click", async () => {
+      await call("tx.update", { id: x.id, status: "excluded", reason: t(b.dataset.reason), description: q("[data-desc]").value,
+        remember: q("[data-remember]").checked, rememberWord: !q("[data-wordbox2]").hidden && q("[data-word2]").checked })
+        .then(() => { toast(t("not_counted")); opts.onDone("excluded"); }).catch(fail);
+    }));
+    const sk = q("[data-skip]");
+    if (sk) sk.addEventListener("click", () => opts.onDone("skip"));
   }
 
   // ---------------------------------------------------------------- pendientes

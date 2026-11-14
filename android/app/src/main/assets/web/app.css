@@ -99,3 +99,23 @@ pre.body { white-space: pre-wrap; word-break: break-word; background: var(--soft
 .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px;
          border-radius: 12px; font-size: .9rem; z-index: 50; opacity: 0; transition: opacity .2s; pointer-events: none; }
 .toast.show { opacity: 1; }
+
+/* tarjeta de gasto (editor) */
+.ed { padding-top: 4px; }
+.ed-count { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 10px; }
+.ed-head { background: var(--soft); border-radius: 20px; padding: 22px 18px 16px; text-align: center; }
+.ed-amount { font-size: 2.5rem; font-weight: 760; letter-spacing: -.025em; line-height: 1.1; cursor: text; }
+.ed-amount input { font-size: 2rem; font-weight: 700; text-align: center; background: var(--bg); }
+.ed-who { font-size: 1.08rem; font-weight: 600; margin-top: 8px; overflow-wrap: anywhere; }
+.ed-sub { color: var(--muted); font-size: .88rem; margin-top: 2px; }
+.ed-tag { display: inline-block; margin-top: 12px; padding: 5px 12px; border-radius: 999px; background: var(--bg);
+          color: var(--muted); font-size: .85rem; }
+.ed-hint { margin-top: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); font-size: .93rem; }
+.ed-input { margin-top: 16px; font-size: 1.1rem; padding: 16px; background: var(--bg); border: 1.5px solid var(--line); }
+.ed-input:focus { border-color: var(--accent); }
+.ed-actions { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 14px; }
+.ed-actions.two { grid-template-columns: 1fr 1fr; }
+.ed-more, .ed-why { margin-top: 6px; padding: 4px 2px 0; }
+.ed-label { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin: 18px 0 2px; }
+.ed-more select { margin-top: 10px; }
+.link.danger { color: var(--bad); margin-top: 18px; }

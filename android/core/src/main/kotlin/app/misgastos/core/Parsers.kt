@@ -283,6 +283,7 @@ object Parsers {
         if (norm(company) in setOf("pagoefectivo", "pago efectivo", "kasnet", "safetypay")) {
             r.flags += "intermediario_pago" // el comercio real no aparece en el correo
             r.fixedHint = false
+            r.description = "" // "PAGOEFECTIVO SOLES" no dice nada: que el usuario escriba qué compró
         }
         if (amt == null) return missing(r, "el monto ('Monto total')")
         r.money(amt)

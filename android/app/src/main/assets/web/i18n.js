@@ -76,6 +76,7 @@ window.I18N = {
     word: "Palabra", means: "Significa", not_expense_cash: "No es gasto (cambio de efectivo)", add: "Agregar",
     always_word: "Siempre que diga “{w}”", always_word_not: "Siempre que diga “{w}”, no contarlo",
     words_empty: "Aún no agregaste palabras.",
+    more_options: "Más opciones", less_options: "Menos opciones", category: "Categoría", type: "Tipo", payment: "Pago",
     others: "Otros", edit_amount: "Toca para cambiar el monto", installment: "cuota {k}", single_payment: "Pago único", n_installments: "{n} cuotas",
   },
   en: {
@@ -154,6 +155,7 @@ window.I18N = {
     word: "Word", means: "Means", not_expense_cash: "Not an expense (cash exchange)", add: "Add",
     always_word: "Whenever it says “{w}”", always_word_not: "Whenever it says “{w}”, don't count it",
     words_empty: "No words yet.",
+    more_options: "More options", less_options: "Fewer options", category: "Category", type: "Type", payment: "Payment",
     others: "Others", edit_amount: "Tap to change the amount", installment: "installment {k}", single_payment: "Single payment", n_installments: "{n} installments",
   },
 };
