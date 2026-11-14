@@ -76,6 +76,34 @@
   const catIcon = (id) => id == null ? `<svg class="icon cat none" viewBox="0 0 24 24">${ANT}</svg>`
     : `<svg class="icon cat" viewBox="0 0 24 24">${CAT_ICON[id] || TAG_ICON}</svg>`;
 
+  // De dónde salió la plata, dicho claro: "Tarjeta de crédito BCP ••8658", "Yape", "Cuenta BCP".
+  function srcLabel(x, short) {
+    const s = x.src || {};
+    if (s.name) return s.name;
+    const tail = s.last4 ? " ••" + s.last4 : "";
+    switch (s.kind) {
+      case "yape": return "Yape";
+      case "credit": return (short ? t("src_credit_short") : t("src_credit", { b: s.bank })) + tail;
+      case "debit": return (short ? t("src_debit_short") : t("src_debit", { b: s.bank })) + tail;
+      case "account": return t("src_account", { b: s.bank });
+      case "cash": return t("src_cash");
+      default: return s.bank || "";
+    }
+  }
+  // Íconos de medio de pago (el usuario elige cuál va con cada tarjeta / billetera).
+  const cardSvg = (fill, chip) => `<svg class="src-ic" viewBox="0 0 24 24"><rect x="1.5" y="4.5" width="21" height="15" rx="2.6" fill="${fill}"/><rect x="1.5" y="8" width="21" height="2.4" fill="rgba(0,0,0,.28)"/><rect x="4.5" y="12.6" width="4.6" height="3.4" rx=".8" fill="${chip}"/></svg>`;
+  const walletSvg = (fill) => `<svg class="src-ic" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5.5" fill="${fill}"/><rect x="8" y="5.5" width="8" height="13" rx="1.8" fill="none" stroke="#fff" stroke-width="1.6"/><path d="M11 15.8h2" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+  const SRC_STYLES = {
+    "wallet-purple": walletSvg("#742284"), "wallet-teal": walletSvg("#00a19a"), "wallet-blue": walletSvg("#1d4ed8"),
+    "card-blue": cardSvg("#1d4ed8", "#e5e7eb"), "card-gold": cardSvg("#c99a2e", "#fbe7a1"), "card-black": cardSvg("#1f2023", "#c9c9cf"),
+    "card-silver": cardSvg("#9ca3af", "#f3f4f6"), "card-green": cardSvg("#15803d", "#e5e7eb"), "card-red": cardSvg("#b91c1c", "#e5e7eb"),
+    "card-purple": cardSvg("#6d28d9", "#e5e7eb"),
+    bank: '<svg class="src-ic line" viewBox="0 0 24 24"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M19 10v8M9.5 10v8M14.5 10v8M3 20h18"/></svg>',
+    cash: '<svg class="src-ic" viewBox="0 0 24 24"><rect x="1.5" y="6" width="21" height="12" rx="2" fill="#15803d"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="#fff" stroke-width="1.5"/></svg>',
+  };
+  const SRC_DEFAULT = { yape: "wallet-purple", debit: "card-blue", credit: "card-silver", account: "bank", cash: "cash", other: "bank" };
+  const srcIcon = (src) => src ? (SRC_STYLES[src.icon] || SRC_STYLES[SRC_DEFAULT[src.kind] || "bank"]) : "";
+
   function monthLabel(ym) {
     const [y, m] = ym.split("-").map(Number);
     const name = L.months[m - 1];
@@ -227,7 +255,7 @@
     const excluded = order.filter((o) => o.x.status === "excluded").sort((a, b) => (b.x.amountPen ?? b.x.amount) - (a.x.amountPen ?? a.x.amount));
     const itemRow = ({ x, i }) => `
         <button class="row ${x.status === "excluded" ? "off" : ""}" data-i="${i}">${catIcon(x.categoryId)}
-          <span class="name" style="flex:1"><b>${esc(x.who)}</b><small>${esc([x.installment ? t("installment", { k: x.installment }) : "", x.description || whenLabel(x.when), x.currency === "USD" ? money(x.amount, "USD") : ""].filter(Boolean).join(" · "))}</small></span>
+          <span class="name" style="flex:1"><b>${esc(x.who)}</b><small>${srcIcon(x.src)}${esc([srcLabel(x, true), x.installment ? t("installment", { k: x.installment }) : "", x.description || whenLabel(x.when), x.currency === "USD" ? money(x.amount, "USD") : ""].filter(Boolean).join(" · "))}</small></span>
           <span class="amt num">${money(x.amountPen ?? x.amount)}</span>
         </button>`;
     const box = $("#items");
@@ -306,6 +334,7 @@
           ${x.currency === "USD" ? `<div class="ed-sub">≈ ${money(x.amountPen)}</div>` : ""}
           <button class="ed-who" data-rename><span data-name>${esc(x.who)}</span> ${ICON.pencil}</button>
           <div class="ed-sub">${esc(whenLabel(x.when))}${x.installment ? " · " + esc(t("installment", { k: x.installment })) : ""}</div>
+          ${x.src && x.src.kind !== "other" || (x.src && x.src.bank) ? `<div class="ed-src">${srcIcon(x.src)}<span>${esc(t("paid_with"))} <b>${esc(srcLabel(x))}</b>${x.ref ? ` · ${esc(t("op"))} ${esc(x.ref)}` : ""}</span></div>` : ""}
           <button class="ed-tag" data-more-toggle>${esc(summary())}</button>
           ${x.mailUrl ? `<a class="ed-mail" href="${esc(x.mailUrl)}" target="_blank" rel="noopener">${ICON.mail}<span>${esc(t("see_email"))}</span></a>` : ""}
         </div>
@@ -437,7 +466,7 @@
     const txs = items.filter((i) => i.kind === "tx");
     const rowTx = (x) => `
       <button class="row" data-id="${x.id}">${catIcon(x.categoryId)}
-        <span class="name" style="flex:1"><b>${esc(x.who)}</b><small>${esc(x.description || whenLabel(x.when))}</small></span>
+        <span class="name" style="flex:1"><b>${esc(x.who)}</b><small>${srcIcon(x.src)}${esc([srcLabel(x, true), x.description || whenLabel(x.when)].filter(Boolean).join(" · "))}</small></span>
         <span class="amt num">${money(x.amountPen ?? x.amount)}</span>
       </button>`;
     app().innerHTML = backBar("#", monthLabel(ym || new Date().toISOString().slice(0, 7))) + `
@@ -540,6 +569,7 @@
         <h1>${esc(t("settings"))}</h1>
         ${row("#settings/gmail", t("gmail"), s.email && s.hasPassword ? t("connected") : t("connect"))}
         ${row("#import", t("yape_history"), s.lastYape ? s.lastYape.slice(0, 10) : "")}
+        ${row("#settings/sources", t("sources"), "")}
         ${row("#settings/categories", t("categories"), "")}
         ${row("#settings/words", t("words"), "")}
         ${row("#settings/language", t("language"), s.language === "auto" ? t("lang_auto") : s.language === "en" ? "English" : "Español")}
@@ -574,6 +604,27 @@
       return;
     }
     if (sub === "ai") return aiPage(s, back);
+    if (sub === "sources") {
+      const list = await call("sources");
+      app().innerHTML = back + `<h1>${esc(t("sources_title"))}</h1><p class="muted">${esc(t("sources_hint"))}</p>` +
+        list.map((x, i) => `<div class="srcrow">
+          <button class="srcpick" data-pick="${i}" aria-label="${esc(t("change_icon"))}">${srcIcon(x)}</button>
+          <span class="name" style="flex:1;min-width:0"><input value="${esc(x.name || "")}" placeholder="${esc(srcLabel({ src: { ...x, name: null } }))}" data-name="${i}">
+            <small class="muted">${esc(x.n === 1 ? t("payments_1") : t("payments_n", { n: x.n }))}</small></span>
+          <div class="srcgrid" data-grid="${i}" hidden>${Object.keys(SRC_STYLES).map((k) =>
+            `<button class="${(x.icon || SRC_DEFAULT[x.kind]) === k ? "on" : ""}" data-icon="${k}">${SRC_STYLES[k]}</button>`).join("")}</div></div>`).join("");
+      app().querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => {
+        const g = app().querySelector(`[data-grid="${b.dataset.pick}"]`); g.hidden = !g.hidden;
+      }));
+      app().querySelectorAll("[data-grid]").forEach((g) => g.querySelectorAll("[data-icon]").forEach((b) => b.addEventListener("click", async () => {
+        const x = list[Number(g.dataset.grid)];
+        await call("source.save", { key: x.key, icon: b.dataset.icon }).catch(fail);
+        settings("sources");
+      })));
+      app().querySelectorAll("[data-name]").forEach((inp) => inp.addEventListener("change", () =>
+        call("source.save", { key: list[Number(inp.dataset.name)].key, name: inp.value }).catch(fail)));
+      return;
+    }
     if (sub === "words") {
       const [words, cats] = [await call("glossary"), await call("categories")];
       const label = (g) => g.notExpense ? t("not_expense_cash") : ((cats.find((c) => c.id === g.categoryId) || {}).name || "—");

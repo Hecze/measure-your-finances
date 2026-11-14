@@ -133,6 +133,7 @@ class Settings {
     var lastSyncOk: Boolean = true
     var senders: MutableList<String> = DEFAULT_SENDERS.toMutableList()
     var language: String = "auto" // auto | es | en
+    var dataVersion: Int = 0
     var aiProvider: String = "none" // none | anthropic | openai | gemini | groq | openrouter | deepseek | custom
     var aiModel: String = ""
     var aiBaseUrl: String = ""
@@ -140,7 +141,7 @@ class Settings {
     fun toJson(): JSONObject = JSONObject().put("email", email).put("imapHost", imapHost).put("daysBack", daysBack)
         .put("ownerNames", JSONArray(ownerNames)).put("usdToPen", usdToPen).put("fxDate", fxDate ?: JSONObject.NULL).put("lastSync", lastSync ?: JSONObject.NULL)
         .put("lastSyncResult", lastSyncResult).put("lastSyncOk", lastSyncOk).put("senders", JSONArray(senders))
-        .put("language", language).put("aiProvider", aiProvider).put("aiModel", aiModel).put("aiBaseUrl", aiBaseUrl)
+        .put("language", language).put("aiProvider", aiProvider).put("aiModel", aiModel).put("aiBaseUrl", aiBaseUrl).put("dataVersion", dataVersion)
 
     companion object {
         const val DEFAULT_FX = 3.40
@@ -170,6 +171,7 @@ class Settings {
             s.aiProvider = o.optString("aiProvider", "none")
             s.aiModel = o.optString("aiModel")
             s.aiBaseUrl = o.optString("aiBaseUrl")
+            s.dataVersion = o.optInt("dataVersion", 0)
             return s
         }
     }
@@ -188,6 +190,9 @@ class AppData {
     val memory: MutableMap<String, Long> = mutableMapOf()
     /** contraparte normalizada -> nombre que el usuario prefiere ("Jcc Ingenieria..." -> "Alquiler"). Solo para mostrar. */
     val aliases: MutableMap<String, String> = mutableMapOf()
+    /** Ícono y nombre que el usuario eligió para cada medio de pago (clave "credit:BCP:1234"). */
+    val sourceIcons: MutableMap<String, String> = mutableMapOf()
+    val sourceNames: MutableMap<String, String> = mutableMapOf()
     /** contraparte normalizada -> fijo/variable elegido por el usuario */
     val fixedMemory: MutableMap<String, Boolean> = mutableMapOf()
     /** Mis palabras (explícitas). Por defecto: "sencillo" y "monedas" son cambio de efectivo. */
@@ -227,6 +232,7 @@ class AppData {
         .put("memory", JSONObject(memory as Map<*, *>))
         .put("fixedMemory", JSONObject(fixedMemory as Map<*, *>))
         .put("aliases", JSONObject(aliases as Map<*, *>))
+        .put("sourceIcons", JSONObject(sourceIcons as Map<*, *>)).put("sourceNames", JSONObject(sourceNames as Map<*, *>))
         .put("seeded", JSONArray(seeded.sorted()))
         .put("glossary", JSONArray(glossary.map { it.toJson() }))
         .put("settings", settings.toJson())
@@ -254,6 +260,8 @@ class AppData {
             o.optJSONObject("memory")?.let { m -> m.keys().forEach { k -> d.memory[k] = m.getLong(k) } }
             o.optJSONObject("fixedMemory")?.let { m -> m.keys().forEach { k -> d.fixedMemory[k] = m.getBoolean(k) } }
             o.optJSONObject("aliases")?.let { m -> m.keys().forEach { k -> d.aliases[k] = m.getString(k) } }
+            o.optJSONObject("sourceIcons")?.let { m -> m.keys().forEach { k -> d.sourceIcons[k] = m.getString(k) } }
+            o.optJSONObject("sourceNames")?.let { m -> m.keys().forEach { k -> d.sourceNames[k] = m.getString(k) } }
             // Datos de versiones anteriores: las categorías existentes cuentan como ya creadas.
             o.optJSONArray("seeded")?.let { a -> for (i in 0 until a.length()) d.seeded += a.getLong(i) }
                 ?: d.categories.filter { it.id in 100L..106L }.forEach { d.seeded += it.id }

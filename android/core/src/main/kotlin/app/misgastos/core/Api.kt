@@ -30,6 +30,7 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
 
     init {
         ledger.data.seedCategories(english = language() == "en")
+        ledger.migrate()
     }
 
     fun language(): String = ledger.data.settings.language.takeIf { it == "es" || it == "en" } ?: if (deviceLanguage.startsWith("en")) "en" else "es"
@@ -123,6 +124,13 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
             mutated()
         }
         "settings" -> settings()
+        "sources" -> sources()
+        "source.save" -> {
+            val key = a.getString("key")
+            if (a.has("icon")) a.optString("icon").takeIf { it.isNotBlank() }?.let { ledger.data.sourceIcons[key] = it } ?: ledger.data.sourceIcons.remove(key)
+            if (a.has("name")) a.optString("name").trim().take(30).takeIf { it.isNotBlank() }?.let { ledger.data.sourceNames[key] = it } ?: ledger.data.sourceNames.remove(key)
+            mutated()
+        }
         "settings.save" -> {
             val s = ledger.data.settings
             if (a.has("language")) s.language = a.getString("language")
@@ -181,6 +189,38 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
         return "https://mail.google.com/mail/" + (if (user.isNotBlank()) "?authuser=" + enc(user) else "") + "#search/" + enc("rfc822msgid:$id")
     }
 
+    /** De dónde salió la plata: yape | credit | debit | account | cash | other, el banco y los 4 últimos dígitos. */
+    fun sourceOf(t: Tx): Triple<String, String, String> {
+        val d = Text.stripAccents(t.accountDetail.lowercase())
+        val last4 = Regex("\\*+\\s*(\\d{4})").find(t.accountDetail)?.groupValues?.get(1) ?: ""
+        val kind = when {
+            t.source == "manual" -> "cash"
+            t.account.equals("Yape", true) -> "yape"
+            d.contains("credito") -> "credit"
+            d.contains("debito") -> "debit"
+            d.startsWith("cuenta") || d.contains("banca") -> "account"
+            else -> "other"
+        }
+        return Triple(kind, t.account, last4)
+    }
+
+    fun sourceKey(t: Tx): String = sourceOf(t).let { (k, b, l) -> "$k:$b:$l" }
+
+    fun srcJson(t: Tx): JSONObject {
+        val (kind, bank, last4) = sourceOf(t)
+        val key = "$kind:$bank:$last4"
+        return JSONObject().put("key", key).put("kind", kind).put("bank", bank).put("last4", last4)
+            .put("icon", ledger.data.sourceIcons[key] ?: JSONObject.NULL).put("name", ledger.data.sourceNames[key] ?: JSONObject.NULL)
+    }
+
+    /** Medios de pago detectados (tarjetas, Yape, cuentas), con cuántos pagos tiene cada uno. */
+    private fun sources(): JSONArray {
+        val outs = ledger.data.txs.filter { it.direction == "out" && it.status != "excluded" }
+        return JSONArray(outs.groupBy { sourceKey(it) }.entries.sortedByDescending { it.value.size }.map { (_, list) ->
+            srcJson(list.first()).put("n", list.size)
+        })
+    }
+
     fun txView(t: Tx): JSONObject {
         val o = JSONObject()
             .put("id", t.id).put("amount", t.amount).put("currency", t.currency).put("who", ledger.displayName(t))
@@ -193,6 +233,8 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
             .put("credit", t.accountDetail.contains("Crédito"))
             .put("amountPen", Math.round(ledger.pen(t) * 100) / 100.0) // vista unificada en soles
         mailUrl(t.emailId)?.let { o.put("mailUrl", it) }
+        o.put("ref", t.externalRef)
+        o.put("src", srcJson(t))
         ledger.hint(t)?.let { (code, params) -> o.put("hint", JSONObject().put("code", code).put("params", JSONObject(params))) }
         return o
     }

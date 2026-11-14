@@ -275,19 +275,43 @@ object Parsers {
         val origin = cellAfter(t, "Cuenta de origen").ifEmpty { valueAfter(t, listOf("Cuenta de origen"), 60) }
         val amt = amountAfterLabel(t, listOf("Monto total", "Importe", "Total pagado", "Monto pagado"))
         val originClean = origin.split(Regex("\\*{2,}"))[0].trim()
+        // A veces los dígitos de la tarjeta vienen en la línea siguiente: se buscan cerca de "Cuenta de origen".
+        val digits = last4(origin).ifEmpty {
+            val i = t.indexOf("Cuenta de origen", ignoreCase = true)
+            if (i < 0) "" else Regex("\\*{2,}\\s*(\\d{4})\\b").find(t.substring(i, minOf(t.length, i + 120)))?.groupValues?.get(1) ?: ""
+        }
         val r = ParseResult(Kind.EXPENSE, "bcp_pago_servicio", account = "BCP",
-            accountDetail = if (last4(origin).isNotEmpty()) "$originClean ****${last4(origin)}".trim() else originClean.ifEmpty { "Banca Móvil" },
+            accountDetail = if (digits.isNotEmpty()) "$originClean ****$digits".trim() else originClean.ifEmpty { "Banca Móvil" },
             counterparty = company, counterpartyType = "business", externalRef = opNumber(t), description = service,
             fixedHint = true)
         whenOf(t, e, listOf("Fecha y hora"), r)
         if (norm(company) in setOf("pagoefectivo", "pago efectivo", "kasnet", "safetypay")) {
-            r.flags += "intermediario_pago" // el comercio real no aparece en el correo
             r.fixedHint = false
-            r.description = "" // "PAGOEFECTIVO SOLES" no dice nada: que el usuario escriba qué compró
+            r.description = "" // "PAGOEFECTIVO SOLES" no dice nada
+            // El comercio real suele venir en "Titular del servicio" seguido de tu nombre: "Falabellacom Hector Zerrillo".
+            val shop = merchantFromHolder(field(t, "Titular del servicio", "Titular"), greetingName(t))
+            if (shop.isNotEmpty()) r.counterparty = "$shop (vía ${company.trim()})"
+            else r.flags += "intermediario_pago" // el comercio real no aparece en el correo
         }
         if (amt == null) return missing(r, "el monto ('Monto total')")
         r.money(amt)
         return r
+    }
+
+    /** Primer nombre del saludo ("Hola HECTOR MANUEL," -> "hector"). */
+    fun greetingName(t: String): String =
+        Regex("(?i)hola\\s+([A-Za-zÁÉÍÓÚÑáéíóúñ]+)").find(t)?.groupValues?.get(1)?.let { norm(it) } ?: ""
+
+    /** "Falabellacom Hector Zerrillo" + "hector" -> "Falabella.com". Si solo queda tu nombre, "". */
+    fun merchantFromHolder(holder: String, first: String): String {
+        val words = holder.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (words.isEmpty() || first.isEmpty()) return "" // sin saber tu nombre, no adivinamos
+        val cut = words.indexOfFirst { norm(it) == first }
+        if (cut == 0) return "" // el titular eres tú
+        val shop = (if (cut > 0) words.take(cut) else words).joinToString(" ")
+        return shop.replace(Regex("(?i)^([a-z0-9]+)com$"), "$1.com").let { v ->
+            if (v == v.lowercase() || v == v.uppercase()) v.lowercase().replaceFirstChar { it.uppercase() } else v
+        }
     }
 
     fun bcpCardPayment(e: Email): ParseResult? {

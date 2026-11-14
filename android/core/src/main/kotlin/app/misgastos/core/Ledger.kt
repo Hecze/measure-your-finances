@@ -285,6 +285,24 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
     // ================================================================ correo
     data class EmailResult(val decision: String, val reason: String, val txState: AddState? = null, val imported: Map<String, Int>? = null)
 
+    /**
+     * Cuando mejora la lectura de un tipo de correo, esos correos se vuelven a leer en la próxima sincronización
+     * y se corrige el gasto que ya existe (no se crea otro). Lo que el usuario editó se respeta.
+     */
+    fun migrate() {
+        if (data.settings.dataVersion < 2) {
+            // v2: PagoEfectivo muestra el comercio real (ej. Falabella.com) en vez de "PAGOEFECTIVO".
+            data.txs.filter { "intermediario_pago" in it.flags && it.emailId != null }.forEach { data.emails.remove(it.emailId) }
+            data.settings.dataVersion = 2
+        }
+        if (data.settings.dataVersion < 3) {
+            // v3: pagos de servicio con tarjeta sin los 4 dígitos: se releen para saber con qué tarjeta fueron.
+            data.txs.filter { it.source == "email" && it.emailId != null && Regex("(?i)tarjeta").containsMatchIn(it.accountDetail) &&
+                !Regex("\\d{4}").containsMatchIn(it.accountDetail) }.forEach { data.emails.remove(it.emailId) }
+            data.settings.dataVersion = 3
+        }
+    }
+
     fun processEmail(m: IncomingEmail, refresh: Boolean = true): EmailResult {
         if (data.emails.containsKey(m.messageId)) return EmailResult("already", "")
         val e = Email(m.from, m.subject, m.html, m.text, m.receivedAt)
@@ -323,6 +341,17 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
                     excludeReason = if (r.kind == Kind.NOT_EXPENSE) r.reason else "",
                     flags = r.flags.toMutableSet(), externalRef = r.externalRef, emailId = m.messageId, fixedHint = r.fixedHint,
                     installments = r.installments)
+                // Releído tras una mejora: se corrige el gasto existente en vez de crear otro.
+                data.txs.firstOrNull { it.emailId == m.messageId }?.let { prev ->
+                    prev.counterparty = t.counterparty
+                    if (prev.description.isBlank()) prev.description = t.description
+                    prev.flags.remove("intermediario_pago"); prev.flags.addAll(t.flags)
+                    if (prev.externalRef.isBlank()) prev.externalRef = t.externalRef
+                    if (t.accountDetail.isNotBlank()) prev.accountDetail = t.accountDetail
+                    rec.txId = prev.id
+                    if (refresh) refreshAll()
+                    return EmailResult(rec.decision, r.reason, AddState.MERGED)
+                }
                 val (state, tx) = add(t)
                 rec.txId = tx.id
                 if (state != AddState.NEW) rec.decision = "duplicate"

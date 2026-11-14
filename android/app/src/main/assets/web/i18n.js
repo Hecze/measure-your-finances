@@ -3,7 +3,7 @@ window.I18N = {
   es: {
     months: ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
     days: ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"],
-    spent: "gastado", spent_this_month: "Este mes · {m}", spent_in: "Gastado en {m}", back_to_now: "Volver a este mes", see_email: "Ver correo",
+    spent: "gastado", spent_this_month: "Este mes · {m}", spent_in: "Gastado en {m}", back_to_now: "Volver a este mes", see_email: "Ver correo", paid_with: "Pagado con", op: "Op.", src_credit: "Tarjeta de crédito {b}", src_debit: "Tarjeta de débito {b}", src_credit_short: "Crédito", src_debit_short: "Débito", src_account: "Cuenta {b}", src_cash: "Efectivo", sources: "Medios de pago", sources_title: "Medios de pago", sources_hint: "Cada gasto muestra con qué se pagó. Toca el ícono para cambiarlo y ponle el nombre que quieras.", change_icon: "Cambiar ícono",
     more: "más", less: "menos", than_in: "que en {m}",
     pending_1: "1 por revisar", pending_n: "{n} por revisar",
     fixed: "Fijos", variable: "Variables", fixed_one: "Fijo", variable_one: "Variable",
@@ -89,7 +89,7 @@ window.I18N = {
   en: {
     months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
     days: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-    spent: "spent", spent_this_month: "This month · {m}", spent_in: "Spent in {m}", back_to_now: "Back to this month", see_email: "View email",
+    spent: "spent", spent_this_month: "This month · {m}", spent_in: "Spent in {m}", back_to_now: "Back to this month", see_email: "View email", paid_with: "Paid with", op: "Op.", src_credit: "{b} credit card", src_debit: "{b} debit card", src_credit_short: "Credit", src_debit_short: "Debit", src_account: "{b} account", src_cash: "Cash", sources: "Payment methods", sources_title: "Payment methods", sources_hint: "Every expense shows how it was paid. Tap the icon to change it and give it any name you like.", change_icon: "Change icon",
     more: "more", less: "less", than_in: "than in {m}",
     pending_1: "1 to review", pending_n: "{n} to review",
     fixed: "Fixed", variable: "Variable", fixed_one: "Fixed", variable_one: "Variable",

@@ -13,6 +13,28 @@ class LedgerTest {
     private fun ledger() = Ledger(AppData().also { it.seedCategories(false) }) { LocalDateTime.of(2026, 11, 14, 12, 0) }
     private fun cat(l: Ledger, name: String) = l.data.categories.first { it.name == name }.id
 
+    @Test fun pagoEfectivoMuestraElComercioReal() {
+        assertEquals("Tiendita.com", Parsers.merchantFromHolder("Tienditacom Juan Perez", "juan"))
+        assertEquals("", Parsers.merchantFromHolder("Juan Perez", "juan"))
+        assertEquals("", Parsers.merchantFromHolder("Tienditacom Juan", "")) // sin nombre del saludo no se adivina
+        val body = "Hola JUAN CARLOS, Tu operación se realizó con éxito\nOperación realizada: Pago de servicios\nNúmero de operación: 00000001\n" +
+            "Fecha y hora: Sábado, 07 Noviembre 2026 - 01:10 P. M.\nEmpresa: PAGOEFECTIVO\nServicio: PAGOEFECTIVO SOLES\n" +
+            "Titular del servicio: Tienditacom Juan Perez\nCuenta de origen: Tarjeta de crédito **** 0000 JUAN CARLOS\nMonto total: S/ 84.10"
+        val l = ledger()
+        // Versión vieja: quedó como PAGOEFECTIVO con la marca de intermediario.
+        val (_, old) = l.add(Tx(0, "email", "out", "BCP", "Tarjeta de crédito ****0000", 84.1, "PEN", "2026-11-07 13:10:00", "PAGOEFECTIVO", "business", "",
+            flags = mutableSetOf("intermediario_pago"), emailId = "<pe@x>"))
+        l.data.emails["<pe@x>"] = EmailRec("<pe@x>", "notificaciones@notificacionesbcp.com.pe", "x", null, "expense", "")
+        l.migrate()
+        l.processEmail(IncomingEmail("<pe@x>", "notificaciones@notificacionesbcp.com.pe",
+            "ENVIO AUTOMATICO - CONSTANCIA DE PAGO DE SERVICIO - BANCA MOVIL BCP", "", body, LocalDateTime.of(2026, 11, 7, 13, 10)))
+        assertEquals(1, l.data.txs.size) // no se duplica
+        assertEquals("Tiendita.com (vía PAGOEFECTIVO)", old.counterparty)
+        assertTrue("intermediario_pago" !in old.flags)
+        assertEquals(3, l.data.settings.dataVersion)
+        assertEquals("Tarjeta de crédito ****0000", old.accountDetail)
+    }
+
     @Test fun farmaciaPorNombreDelReceptor() {
         assertEquals(Vocabulary.HEALTH, Vocabulary.byPayeeName("IKF D63 NACIONES UNIDAS"))
         assertEquals(Vocabulary.HEALTH, Vocabulary.byPayeeName("OTIFARMA SAC"))
