@@ -76,7 +76,7 @@ window.I18N = {
     word: "Palabra", means: "Significa", not_expense_cash: "No es gasto (cambio de efectivo)", add: "Agregar",
     always_word: "Siempre que diga “{w}”", always_word_not: "Siempre que diga “{w}”, no contarlo",
     words_empty: "Aún no agregaste palabras.",
-    edit_amount: "Toca para cambiar el monto", installment: "cuota {k}", single_payment: "Pago único", n_installments: "{n} cuotas",
+    others: "Otros", edit_amount: "Toca para cambiar el monto", installment: "cuota {k}", single_payment: "Pago único", n_installments: "{n} cuotas",
   },
   en: {
     months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
@@ -154,6 +154,6 @@ window.I18N = {
     word: "Word", means: "Means", not_expense_cash: "Not an expense (cash exchange)", add: "Add",
     always_word: "Whenever it says “{w}”", always_word_not: "Whenever it says “{w}”, don't count it",
     words_empty: "No words yet.",
-    edit_amount: "Tap to change the amount", installment: "installment {k}", single_payment: "Single payment", n_installments: "{n} installments",
+    others: "Others", edit_amount: "Tap to change the amount", installment: "installment {k}", single_payment: "Single payment", n_installments: "{n} installments",
   },
 };

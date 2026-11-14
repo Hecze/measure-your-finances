@@ -172,12 +172,29 @@
       <h1>${esc(title)}</h1>
       <div class="total num" style="font-size:2rem;margin-bottom:8px">${money(d.total)}</div>
       ${breakdown}
-      <div>${d.items.map((x, i) => `
+      <div id="items"></div>
+      ${group === "all" ? `<button class="more" data-add>${esc(t("add_cash"))}</button>` : ""}`;
+    // De mayor a menor: los 6 más grandes y un séptimo "Otros" con la suma del resto.
+    const order = d.items.map((x, i) => ({ x, i }));
+    const counted = order.filter((o) => o.x.status !== "excluded").sort((a, b) => (b.x.amountPen ?? b.x.amount) - (a.x.amountPen ?? a.x.amount));
+    const excluded = order.filter((o) => o.x.status === "excluded").sort((a, b) => (b.x.amountPen ?? b.x.amount) - (a.x.amountPen ?? a.x.amount));
+    const itemRow = ({ x, i }) => `
         <button class="row ${x.status === "excluded" ? "off" : ""}" data-i="${i}">
           <span class="name"><b>${esc(x.who)}</b><small>${esc([x.installment ? t("installment", { k: x.installment }) : "", x.description || whenLabel(x.when), x.currency === "USD" ? money(x.amount, "USD") : ""].filter(Boolean).join(" · "))}</small></span>
           <span class="amt num">${money(x.amountPen ?? x.amount)}</span>
-        </button>`).join("") || `<p class="empty">${esc(t("empty_month"))}</p>`}</div>
-      ${group === "all" ? `<button class="more" data-add>${esc(t("add_cash"))}</button>` : ""}`;
+        </button>`;
+    const box = $("#items");
+    if (!d.items.length) box.innerHTML = `<p class="empty">${esc(t("empty_month"))}</p>`;
+    else if (counted.length + excluded.length <= 7) box.innerHTML = counted.concat(excluded).map(itemRow).join("");
+    else {
+      const rest = counted.slice(6).concat(excluded);
+      const restSum = counted.slice(6).reduce((s, o) => s + (o.x.amountPen ?? o.x.amount), 0);
+      box.innerHTML = counted.slice(0, 6).map(itemRow).join("") + `
+        <button class="row" id="others"><span class="name"><b>${esc(t("others"))}</b><small>${esc(t("payments_n", { n: counted.length - 6 }))}</small></span>
+          <span class="amt num">${money(restSum)}</span></button>
+        <div id="rest" hidden>${rest.map(itemRow).join("")}</div>`;
+      $("#others").addEventListener("click", () => { $("#others").hidden = true; $("#rest").hidden = false; });
+    }
     app().querySelectorAll("[data-i]").forEach((b) => b.addEventListener("click", () => {
       const el = document.createElement("div");
       const close = sheet("");
