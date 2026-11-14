@@ -200,6 +200,7 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
     fun categoryFromText(t: Tx): Pair<Long?, String> {
         val key = counterpartyKey(t.counterparty)
         if (t.counterpartyType != "person") data.memory[key]?.let { return it to "auto" }
+        Vocabulary.byPayeeName(t.counterparty)?.let { data.categoryIdForDefault(it) }?.let { return it to "auto" }
         if (t.description.isNotBlank()) {
             // Mis palabras (explícitas) mandan sobre el vocabulario.
             glossaryFor(t.description)?.categoryId?.let { return it to "auto" }

@@ -13,6 +13,17 @@ class LedgerTest {
     private fun ledger() = Ledger(AppData().also { it.seedCategories(false) }) { LocalDateTime.of(2026, 11, 14, 12, 0) }
     private fun cat(l: Ledger, name: String) = l.data.categories.first { it.name == name }.id
 
+    @Test fun farmaciaPorNombreDelReceptor() {
+        assertEquals(Vocabulary.HEALTH, Vocabulary.byPayeeName("IKF D63 NACIONES UNIDAS"))
+        assertEquals(Vocabulary.HEALTH, Vocabulary.byPayeeName("OTIFARMA SAC"))
+        assertEquals(Vocabulary.HEALTH, Vocabulary.byPayeeName("Mifarma 123"))
+        assertEquals(null, Vocabulary.byPayeeName("PIKFOOD"))
+        val l = ledger()
+        val (_, t) = l.add(Tx(0, "email", "out", "BCP", "", 246.6, "PEN", "2026-11-12 19:16:00", "IKF D63 NACIONES UNIDAS", "business", ""))
+        l.refreshAll()
+        assertEquals(cat(l, Vocabulary.HEALTH), t.categoryId)
+    }
+
     @Test fun excelReimportNoDuplica() {
         val l = ledger()
         val rows = YapeExcel.parse(yapeXlsx(ROWS))

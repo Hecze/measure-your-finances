@@ -108,6 +108,16 @@ object Vocabulary {
     }
 
     /** Categoría por vocabulario (nombre por defecto) o null si no hay ninguna palabra conocida. */
+    /**
+     * Reglas por nombre del receptor que valen siempre (no por palabra suelta):
+     * "FARMA" en cualquier parte (Inkafarma, Mifarma, Otifarma...) o "IKF" (Inkafarma) = farmacia.
+     */
+    fun byPayeeName(name: String): String? {
+        val n = Text.stripAccents(name.lowercase())
+        if (n.contains("farma") || n.contains("botica") || Regex("(^|[^a-z])ikf([^a-z]|$)").containsMatchIn(n)) return HEALTH
+        return null
+    }
+
     fun guess(text: String): String? {
         val score = mutableMapOf<String, Int>()
         for (t in tokens(text)) INDEX[t]?.let { score[it] = (score[it] ?: 0) + if (t.contains(' ')) 2 else 1 }
