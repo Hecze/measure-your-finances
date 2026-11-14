@@ -41,12 +41,21 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
                 continue // mismo banco, distinto nº de operación: son dos operaciones
             }
             if (r.source == "yape" && t.source == "yape") continue // el Excel ya se deduplica por clave
-            if (r.source != t.source) { if (best == null) best = r; continue }
-            val a = norm(r.counterparty)
-            val b = norm(t.counterparty)
-            if (a in GENERIC || b in GENERIC || Text.similarity(a, b) >= 0.6) if (best == null) best = r
+            // Mismo monto y hora no basta: dos personas distintas pueden recibir S/ 2 en el mismo minuto.
+            if (samePayee(r.counterparty, t.counterparty)) if (best == null) best = r
         }
         return best
+    }
+
+    /** ¿Es la misma contraparte escrita de dos formas? ("PLIN-DIEGO ARMANDO CAME" y "PLIN - DIEGO ARMANDO CAMEJO ORTIZ"). */
+    private fun samePayee(x: String, y: String): Boolean {
+        val a = norm(x)
+        val b = norm(y)
+        if (a in GENERIC || b in GENERIC) return true
+        if (Text.similarity(a, b) >= 0.6) return true
+        val ta = counterpartyKey(x).split(" ").filter { it.length >= 4 }.toSet()
+        val tb = counterpartyKey(y).split(" ").filter { it.length >= 4 }.toSet()
+        return (ta intersect tb).isNotEmpty()
     }
 
     private fun mergeInto(existing: Tx, new: Tx): Boolean {

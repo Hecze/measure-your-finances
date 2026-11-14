@@ -38,6 +38,16 @@ class LedgerTest {
         assertEquals("already", l.processEmail(IncomingEmail("<1>", BCP, "x")).decision)
     }
 
+    @Test fun mismoMontoYHoraPeroOtraPersonaNoSeJunta() {
+        val l = ledger()
+        // Correo BCP: pago con débito a PLIN-JUAN PEREZ GARC por S/ 6.00 a las 11:41
+        l.processEmail(IncomingEmail("<7>", BCP, "Realizaste un consumo con tu Tarjeta de Débito BCP", html("consumo_plin.html"),
+            receivedAt = LocalDateTime.of(2026, 10, 26, 11, 42)))
+        // Excel: otra persona, mismo monto, 2 minutos después -> son dos pagos
+        l.importYape(YapeExcel.parse(yapeXlsx(listOf(listOf("PAGASTE", "Ana Per*", "Maria Lop*", "6.00", "", "26/10/2026 11:43:00")))))
+        assertEquals(2, l.data.txs.count { it.amount == 6.0 })
+    }
+
     @Test fun paseDeDineroYCambioDeEfectivo() {
         val l = ledger()
         l.importYape(YapeExcel.parse(yapeXlsx(ROWS)))
