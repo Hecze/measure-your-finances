@@ -136,20 +136,14 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
         val outs = data.txs.filter { it.direction == "out" && it.status != "excluded" }
         val byKey = outs.groupBy { counterpartyKey(it.counterparty) }
         val valid = data.categories.map { it.id }.toSet()
-        // 1) fijo / variable
-        for (t in data.txs) {
-            if (t.direction != "out" || t.fixedSource == "user") continue
-            val key = counterpartyKey(t.counterparty)
-            t.fixed = data.fixedMemory[key] ?: isFixed(t, byKey[key].orEmpty())
-        }
-        // 2) categoría por texto
+        // 1) categoría por texto
         for (t in data.txs) {
             if (t.direction != "out" || t.categorySource == "user" || t.categorySource == "ia") continue
             val (id, src) = categoryFromText(t)
             t.categoryId = id?.takeIf { it in valid }
             t.categorySource = if (t.categoryId != null) src else ""
         }
-        // 3) personas sin descripción: lo usual con esa persona (>=2 casos y >=70%)
+        // 2) personas sin descripción: lo usual con esa persona (>=2 casos y >=70%)
         val known = data.txs.filter { it.direction == "out" && it.counterpartyType == "person" && it.categoryId != null &&
             it.categorySource in setOf("user", "auto", "ia") }.groupBy { counterpartyKey(it.counterparty) }
         for (t in data.txs) {
@@ -161,6 +155,29 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
                 t.categorySource = "persona"
             }
         }
+        // 3) fijo / variable: lo del usuario › lo recordado › pago mensual repetido › tipo de su categoría › palabras
+        val catFixed = data.categories.associate { it.id to it.fixed }
+        for (t in data.txs) {
+            if (t.direction != "out" || t.fixedSource == "user") continue
+            val key = counterpartyKey(t.counterparty)
+            val same = byKey[key].orEmpty()
+            t.fixed = data.fixedMemory[key]
+                ?: (if (t.fixedHint || isRecurring(t, same)) true else null) // evidencia fuerte: servicio o pago mensual repetido
+                ?: t.categoryId?.let { catFixed[it] }
+                ?: isFixed(t, same)
+        }
+        // 4) Gasto hormiga: pago chico (< S/ 10), variable y sin más información para clasificarlo.
+        val ant = data.categoryIdForDefault(Vocabulary.ANT)
+        if (ant != null) for (t in data.txs) {
+            if (t.direction != "out" || t.fixed || t.categoryId != null || t.categorySource == "user") continue
+            if (pen(t) < ANT_LIMIT) { t.categoryId = ant; t.categorySource = "auto" }
+        }
+    }
+
+    companion object {
+        const val ANT_LIMIT = 10.0
+        /** A partir de este monto un pago a una persona sí se recuerda y se puede revisar. */
+        const val REVIEW_MIN = 100.0
     }
 
     /** Entrada de "Mis palabras" que aparece como palabra (o frase) completa en el texto. */
@@ -200,9 +217,15 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
         if (t.fixedHint) return true
         val words = norm(t.description + " " + t.counterparty).split(" ").toSet()
         if (words.any { it in FIXED_WORDS }) return true
+        return isRecurring(t, same)
+    }
+
+    /**
+     * Recurrente: misma contraparte en 3+ meses, ~1 vez por mes, con monto parecido (±12%).
+     * Con 2 meses no basta: ir al cine o pedir delivery dos veces no lo vuelve fijo.
+     */
+    private fun isRecurring(t: Tx, same: List<Tx>): Boolean {
         if (counterpartyKey(t.counterparty).isEmpty() || t.amount < 5) return false
-        // Recurrente: misma contraparte en 3+ meses, ~1 vez por mes, con monto parecido (±12%).
-        // Con 2 meses no basta: ir al cine o pedir delivery dos veces no lo vuelve fijo.
         val similar = same.filter { kotlin.math.abs(it.amount - t.amount) <= 0.12 * t.amount + 0.01 }
         val months = similar.groupBy { it.occurredAt.substring(0, 7) }
         return months.size >= 3 && months.values.all { it.size <= 2 }
@@ -391,14 +414,25 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
     private val REVIEW_FLAGS = setOf("ia_no_gasto", "pase_de_dinero", "persona_tambien_te_envia", "posible_cambio_o_encargo", "revisar_transferencia",
         "intermediario_pago", "plantilla_generica", "posible_duplicado_promo")
 
-    /** Pendientes: lo que necesita al usuario. Lo dudoso primero; luego pagos a personas sin descripción (45 días). */
+    /**
+     * Por revisar: solo lo que un humano puede reconocer después de días o semanas.
+     *  - pagos a empresas (el nombre del comercio ayuda a recordar), o
+     *  - pagos grandes (> S/ 100), aunque sean a personas.
+     * Los yapeos chicos entre personas nunca se preguntan: nadie recuerda un pago de S/ 4 de hace dos semanas.
+     * Además debe faltar algo (categoría o descripción) o haber una duda; sin eso no hay nada que revisar.
+     */
     fun queue(): List<Tx> {
-        // Solo se piden descripciones desde el mes actual: lo anterior ya pasó y no se pregunta.
-        val since = Text.fmt(now().withDayOfMonth(1).toLocalDate().atStartOfDay())
-        val pend = data.txs.filter { it.direction == "out" && it.status == "pending" }.sortedByDescending { it.occurredAt }
-        val flagged = pend.filter { t -> t.flags.any { it in REVIEW_FLAGS } }
-        val noDesc = pend.filter { it !in flagged && it.counterpartyType == "person" && it.description.isBlank() && it.occurredAt >= since }
-        return flagged + noDesc
+        // Quien entra una vez al mes revisa este mes y el anterior; lo más viejo ya no se pregunta.
+        val since = Text.fmt(now().withDayOfMonth(1).minusMonths(1).toLocalDate().atStartOfDay())
+        return data.txs.filter { t ->
+            if (t.direction != "out" || t.status != "pending" || t.occurredAt < since) return@filter false
+            val recognizable = t.counterpartyType == "business" || pen(t) > REVIEW_MIN
+            if (!recognizable) return@filter false
+            // Una transferencia con mensaje ("Alquiler") ya está explicada.
+            val doubt = t.flags.any { it in REVIEW_FLAGS && !(it == "revisar_transferencia" && t.description.isNotBlank()) }
+            val missing = t.categoryId == null || (t.counterpartyType != "business" && t.description.isBlank())
+            doubt || missing
+        }.sortedWith(compareByDescending<Tx> { pen(it) })
     }
 
     fun unknownEmails(): List<EmailRec> = data.emails.values.filter { it.decision == "unknown" }.sortedByDescending { it.receivedAt }

@@ -7,7 +7,8 @@ App Android open source para saber **cuánto gastas y en qué**, leyendo los cor
 ## Qué hace
 
 - **Un número**: lo que gastaste este mes, separado en **Fijos** (alquiler, universidad, plan de celular) y **Variables**.
-- **Pendientes, de a uno**: "¿En qué fue?", Fijo/Variable, categoría, y *Listo* o *No es gasto*. Solo se piden descripciones de los pagos del mes actual.
+- **Por revisar, sin obligación**: solo lo que se puede recordar días después: pagos a empresas sin categoría o con dudas, y pagos de más de S/ 100. Los yapeos chicos entre personas nunca se preguntan. Solo este mes y el anterior.
+- **Gastos hormiga**: pagos de menos de S/ 10 sin más información se agrupan solos como gastos hormiga (variables).
 - **No adivina.** Cada tipo de correo tiene una plantilla exacta. Si llega uno que no reconoce, te pregunta.
 - **Mide gastos, no ingresos.** Tú decides qué no cuenta: cambio de efectivo, encargos, pases de dinero, transferencias a tus propias cuentas.
 - **Una sola moneda en pantalla**: todo se suma y se muestra en soles. Los gastos en dólares (tarjeta o cuenta en dólares) se convierten con el tipo de cambio del último pago de tu tarjeta en dólares que aparece en tus correos del BCP (si aún no hay, 3.40). El monto original se ve debajo.
@@ -27,7 +28,7 @@ App Android open source para saber **cuánto gastas y en qué**, leyendo los cor
 
 ## Cómo entiende tus gastos
 
-1. **Fijo o variable**: pagos de servicios, palabras como "alquiler" o "mensualidad", o el mismo pago repetido 3+ meses con monto parecido.
+1. **Fijo o variable**: lo que tú elijas en cada pago › el mismo pago repetido 3+ meses › el tipo de su categoría (fijas: Casa y servicios, Transporte, Educación, Deudas) › palabras como "alquiler".
 2. **En qué fue** (para lo variable):
    - vocabulario peruano ("1/4 + 1l de chicha" → Comida, "pasaje mall" → Transporte, "mike" o "fourloko" → Salidas);
    - **Mis palabras** (Ajustes): tú dices qué significa una palabra ("enanita" = Comida) y solo se aplica cuando la descripción contiene exactamente esa palabra. Nada se deduce por su cuenta. Por defecto, "sencillo" y "monedas" son cambio de efectivo y no se cuentan;

@@ -16,12 +16,17 @@ object Vocabulary {
     const val EDUCATION = "Educación"
     const val FUN = "Salidas y ocio"
     const val SHOPPING = "Compras"
+    const val ANT = "Gastos hormiga"
+    const val DEBT = "Deudas"
 
     /** Nombres por defecto (es, en). */
     val DEFAULTS = listOf(
         FOOD to "Food", TRANSPORT to "Transport", HOME to "Home & bills", HEALTH to "Health & care",
-        EDUCATION to "Education", FUN to "Going out", SHOPPING to "Shopping",
+        EDUCATION to "Education", FUN to "Going out", SHOPPING to "Shopping", ANT to "Small expenses", DEBT to "Debts",
     )
+
+    /** Tipo por defecto de cada categoría: fijos los que se pagan todos los meses. */
+    val FIXED_BY_DEFAULT = setOf(HOME, TRANSPORT, EDUCATION, DEBT)
 
     val WORDS: Map<String, List<String>> = mapOf(
         FOOD to listOf(
@@ -77,6 +82,10 @@ object Vocabulary {
         ),
     )
 
+    /** Pagos de deudas (no préstamos que tú das: esos se marcan como "no es gasto"). */
+    private val DEBT_WORDS = listOf("deuda", "deudas", "cuota prestamo", "cuota del prestamo", "pago prestamo", "pago de prestamo",
+        "pago del prestamo", "letra", "financiamiento", "cuota auto", "cuota carro", "cuota moto")
+
     /** Palabras sin significado para categorizar. */
     val STOP = setOf(
         "de", "del", "la", "el", "los", "las", "y", "con", "para", "por", "en", "a", "al", "un", "una", "mas", "más", "mi", "tu",
@@ -93,6 +102,7 @@ object Vocabulary {
 
     private val INDEX: Map<String, String> by lazy {
         val m = mutableMapOf<String, String>()
+        for (w in DEBT_WORDS) m[Text.stripAccents(w)] = DEBT
         for ((cat, words) in WORDS) for (w in words) m.putIfAbsent(Text.stripAccents(w.lowercase()), cat)
         m
     }

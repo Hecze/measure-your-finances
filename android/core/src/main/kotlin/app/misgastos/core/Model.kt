@@ -66,8 +66,9 @@ data class Tx(
     }
 }
 
-data class Category(var id: Long, var name: String) {
-    fun toJson(): JSONObject = JSONObject().put("id", id).put("name", name)
+/** Categoría de "en qué fue". fixed = tipo por defecto de sus gastos (fijo o variable). */
+data class Category(var id: Long, var name: String, var fixed: Boolean = false) {
+    fun toJson(): JSONObject = JSONObject().put("id", id).put("name", name).put("fixed", fixed)
 }
 
 /** Registro de cada correo leído: qué se decidió y por qué. El cuerpo solo se guarda si hay que revisarlo. */
@@ -195,9 +196,17 @@ class AppData {
         GlossaryEntry("monedas", null, true, "cash"),
     )
 
+    /** Categorías por defecto que ya se crearon alguna vez (si el usuario borra una, no vuelve a aparecer). */
+    val seeded: MutableSet<Long> = mutableSetOf()
+
     fun seedCategories(english: Boolean) {
-        if (categories.isNotEmpty()) return
-        Vocabulary.DEFAULTS.forEachIndexed { i, (es, en) -> categories += Category(100L + i, if (english) en else es) }
+        Vocabulary.DEFAULTS.forEachIndexed { i, (es, en) ->
+            val id = 100L + i
+            if (id !in seeded) {
+                if (categories.none { it.id == id }) categories += Category(id, if (english) en else es, es in Vocabulary.FIXED_BY_DEFAULT)
+                seeded += id
+            }
+        }
     }
 
     /** Relación categoría por defecto (nombre español del vocabulario) -> id, aunque el usuario la haya renombrado. */
@@ -218,6 +227,7 @@ class AppData {
         .put("memory", JSONObject(memory as Map<*, *>))
         .put("fixedMemory", JSONObject(fixedMemory as Map<*, *>))
         .put("aliases", JSONObject(aliases as Map<*, *>))
+        .put("seeded", JSONArray(seeded.sorted()))
         .put("glossary", JSONArray(glossary.map { it.toJson() }))
         .put("settings", settings.toJson())
         .toString()
@@ -231,7 +241,12 @@ class AppData {
             o.optJSONArray("txs")?.let { a -> for (i in 0 until a.length()) d.txs += Tx.fromJson(a.getJSONObject(i)) }
             o.optJSONArray("categories")?.let { a ->
                 d.categories.clear()
-                for (i in 0 until a.length()) a.getJSONObject(i).let { c -> d.categories += Category(c.getLong("id"), c.getString("name")) }
+                for (i in 0 until a.length()) a.getJSONObject(i).let { c ->
+                    val id = c.getLong("id")
+                    // Datos antiguos sin "fixed": usar el tipo por defecto de la categoría.
+                    val def = Vocabulary.DEFAULTS.getOrNull((id - 100).toInt())?.first?.let { it in Vocabulary.FIXED_BY_DEFAULT } ?: false
+                    d.categories += Category(id, c.getString("name"), if (c.has("fixed")) c.getBoolean("fixed") else def)
+                }
             }
             o.optJSONArray("emails")?.let { a -> for (i in 0 until a.length()) EmailRec.fromJson(a.getJSONObject(i)).let { d.emails[it.id] = it } }
             o.optJSONArray("notCounted")?.let { a -> for (i in 0 until a.length()) a.getJSONObject(i).let { d.notCounted += NotCountedRule(it.getString("pattern"), it.optString("reason")) } }
@@ -239,6 +254,9 @@ class AppData {
             o.optJSONObject("memory")?.let { m -> m.keys().forEach { k -> d.memory[k] = m.getLong(k) } }
             o.optJSONObject("fixedMemory")?.let { m -> m.keys().forEach { k -> d.fixedMemory[k] = m.getBoolean(k) } }
             o.optJSONObject("aliases")?.let { m -> m.keys().forEach { k -> d.aliases[k] = m.getString(k) } }
+            // Datos de versiones anteriores: las categorías existentes cuentan como ya creadas.
+            o.optJSONArray("seeded")?.let { a -> for (i in 0 until a.length()) d.seeded += a.getLong(i) }
+                ?: d.categories.filter { it.id in 100L..106L }.forEach { d.seeded += it.id }
             o.optJSONArray("glossary")?.let { a ->
                 d.glossary.clear()
                 for (i in 0 until a.length()) d.glossary += GlossaryEntry.fromJson(a.getJSONObject(i))

@@ -69,6 +69,38 @@ class LedgerTest {
         assertEquals(3.4510, l.data.settings.usdToPen)
     }
 
+    @Test fun gastosHormiga() {
+        val l = ledger()
+        l.importYape(YapeExcel.parse(yapeXlsx(listOf(
+            listOf("PAGASTE", "Ana Per*", "Julia San*", "1.50", "", "10/11/2026 08:00:00"),
+            listOf("PAGASTE", "Ana Per*", "Julia San*", "2.00", "pasaje", "10/11/2026 09:00:00"),
+            listOf("PAGASTE", "Ana Per*", "Julia San*", "25.00", "", "10/11/2026 10:00:00"),
+        ))))
+        assertEquals(cat(l, "Gastos hormiga"), l.data.txs.first { it.amount == 1.5 }.categoryId)
+        assertEquals(cat(l, "Transporte"), l.data.txs.first { it.amount == 2.0 }.categoryId) // la descripción manda
+        assertEquals(null, l.data.txs.first { it.amount == 25.0 }.categoryId)
+    }
+
+    @Test fun tipoPorDefectoDeLaCategoria() {
+        val l = ledger()
+        l.importYape(YapeExcel.parse(yapeXlsx(listOf(
+            listOf("PAGASTE", "Ana Per*", "Alex Flo*", "2.50", "pasaje", "10/11/2026 08:00:00"),
+            listOf("PAGASTE", "Ana Per*", "Sonia Puz*", "16.00", "almuerzo", "10/11/2026 13:00:00"),
+            listOf("PAGASTE", "Ana Per*", "Banco Ejemplo SAC", "350.00", "cuota prestamo", "10/11/2026 18:00:00"),
+        ))))
+        assertTrue(l.data.txs.first { it.description == "pasaje" }.fixed)           // Transporte: fijo
+        assertTrue(!l.data.txs.first { it.description == "almuerzo" }.fixed)        // Comida: variable
+        assertEquals(cat(l, "Deudas"), l.data.txs.first { it.amount == 350.0 }.categoryId)
+        assertTrue(l.data.txs.first { it.amount == 350.0 }.fixed)                   // Deudas: fijo
+    }
+
+    @Test fun categoriaBorradaNoVuelve() {
+        val d = AppData().also { it.seedCategories(false) }
+        d.categories.removeIf { it.name == "Gastos hormiga" }
+        val again = AppData.fromJson(d.toJson()).also { it.seedCategories(false) }
+        assertTrue(again.categories.none { it.name == "Gastos hormiga" })
+    }
+
     @Test fun renombrarReceptor() {
         val l = ledger()
         l.importYape(YapeExcel.parse(yapeXlsx(listOf(
@@ -97,7 +129,7 @@ class LedgerTest {
         val flor = l.data.txs.first { it.counterparty == "Flor Per*" }
         assertEquals("excluded", flor.status)
         assertEquals("pending", jose.status) // solo sugerencia
-        assertTrue(l.queue().first() == jose || l.queue().contains(jose))
+        assertTrue(jose in l.queue()) // S/ 150 (> S/ 100) con señal de pase de dinero: sí se revisa
     }
 
     @Test fun personaQueTambienTeEnvia() {
@@ -186,7 +218,7 @@ class LedgerTest {
             listOf("PAGASTE", "Ana Per*", "Flor Per*", "15.00", "enanita", "10/11/2026 18:00:00"),
             listOf("PAGASTE", "Ana Per*", "Luis Gom*", "10.00", "pololaaa", "10/11/2026 19:00:00"),
             listOf("PAGASTE", "Ana Per*", "Rosa Per*", "50.00", "monedas", "10/11/2026 20:00:00"),
-            listOf("PAGASTE", "Ana Per*", "Rosa Per*", "8.00", "menanitas", "10/11/2026 21:00:00"),
+            listOf("PAGASTE", "Ana Per*", "Rosa Per*", "18.00", "menanitas", "10/11/2026 21:00:00"),
         )
         l.importYape(YapeExcel.parse(yapeXlsx(rows)))
         assertEquals(null, l.data.txs.first { it.description == "enanita" }.categoryId) // sin regla: no se adivina
@@ -213,14 +245,17 @@ class LedgerTest {
         assertEquals(cat(l, "Comida"), l.data.txs.first { it.counterparty == "Luis Gom*" }.categoryId)
     }
 
-    @Test fun soloSePidenDescripcionesDelMesActual() {
+    @Test fun porRevisarSoloLoQueSePuedeRecordar() {
         val l = ledger() // "hoy" = 14/11/2026
         l.importYape(YapeExcel.parse(yapeXlsx(listOf(
-            listOf("PAGASTE", "Ana Per*", "Lucia Pat*", "10.00", "", "30/10/2026 12:00:00"),
-            listOf("PAGASTE", "Ana Per*", "Lucia Pat*", "12.00", "", "02/11/2026 12:00:00"),
+            listOf("PAGASTE", "Ana Per*", "Lucia Pat*", "12.00", "", "02/11/2026 12:00:00"),      // persona, chico: nunca
+            listOf("PAGASTE", "Ana Per*", "Axel Pel*", "500.00", "", "05/11/2026 10:00:00"),     // persona, grande: sí
+            listOf("PAGASTE", "Ana Per*", "Axel Pel*", "480.00", "", "05/10/2026 10:00:00"),     // grande, mes anterior: sí
+            listOf("PAGASTE", "Ana Per*", "Axel Pel*", "470.00", "", "05/09/2026 10:00:00"),     // hace dos meses: no
+            listOf("PAGASTE", "Ana Per*", "INVERSIONES XYZ SAC", "35.00", "", "06/11/2026 10:00:00"), // empresa sin categoría: sí
+            listOf("PAGASTE", "Ana Per*", "BODEGA EJEMPLO SAC", "20.00", "", "06/11/2026 11:00:00"),  // empresa ya clasificada: no
         ))))
-        val q = l.queue()
-        assertEquals(listOf(12.0), q.map { it.amount })
+        assertEquals(listOf(500.0, 480.0, 35.0), l.queue().map { it.amount })
     }
 
     @Test fun loUsualConEstaPersona() {

@@ -47,10 +47,14 @@
     right: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>',
     gear: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
     check: '<svg class="icon" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>',
+    close: '<svg class="icon sm" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     down: '<svg class="icon sm" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
     pencil: '<svg class="icon sm" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
   };
 
+  // Hormiga (gastos hormiga y sin categoría): cabeza, tórax, abdomen, antenas y seis patas.
+  const ANT = '<circle cx="12" cy="5.6" r="1.7"/><ellipse cx="12" cy="10.2" rx="1.5" ry="1.9"/><ellipse cx="12" cy="16.6" rx="2.6" ry="3.6"/>' +
+    '<path d="M11.2 4.2 9.4 1.8M12.8 4.2l1.8-2.4M10.6 9.3 7.2 7.6M13.4 9.3l3.4-1.7M10.5 10.5 6.6 11.2M13.5 10.5l3.9.7M10.8 11.6 8 15M13.2 11.6 16 15"/>';
   // Íconos de categoría (línea fina, mismo trazo que el resto). Por id de categoría por defecto; las nuevas usan una etiqueta.
   const CAT_ICON = {
     100: '<path d="M3 2v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6a2 2 0 0 0 2 2h3zm0 0v7"/>',
@@ -58,12 +62,16 @@
     102: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>',
     103: '<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"/>',
     104: '<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>',
+    108: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/>',
     105: '<path d="M8 22h8"/><path d="M12 15v7"/><path d="M5 3h14l-1 7a6 6 0 0 1-12 0z"/>',
     106: '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+    107: ANT,
   };
   const TAG_ICON = '<path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"/><circle cx="7.5" cy="7.5" r="1"/>';
   const NONE_ICON = '<circle cx="12" cy="12" r="9" stroke-dasharray="2.5 3"/>';
-  const catIcon = (id) => `<svg class="icon cat" viewBox="0 0 24 24">${id == null ? NONE_ICON : (CAT_ICON[id] || TAG_ICON)}</svg>`;
+  // Sin categoría: la hormiga, más tenue.
+  const catIcon = (id) => id == null ? `<svg class="icon cat none" viewBox="0 0 24 24">${ANT}</svg>`
+    : `<svg class="icon cat" viewBox="0 0 24 24">${CAT_ICON[id] || TAG_ICON}</svg>`;
 
   function monthLabel(ym) {
     const [y, m] = ym.split("-").map(Number);
@@ -158,14 +166,15 @@
     if (d.noDesc > 0) maybeTip(d.noDesc);
   }
 
+  // Consejo (no tarea): escribir el mensaje al yapear, porque después nadie se acuerda. Máximo una vez por semana.
   function maybeTip(n) {
-    const key = "tip:" + new Date().toISOString().slice(0, 10);
+    const d = new Date();
+    const key = "tip:" + d.getFullYear() + "-" + Math.floor((d - new Date(d.getFullYear(), 0, 1)) / 6048e5);
     try { if (localStorage.getItem(key)) return; localStorage.setItem(key, "1"); } catch (_) { return; }
     sheet(`
       <h1>${esc(t("tip_title"))}</h1>
       <p>${esc(t("tip_text", { n }))}</p>
-      <p class="muted">${esc(t("tip_small"))}</p>
-      <div class="actions"><button class="btn" data-close>${esc(t("later"))}</button><a class="btn primary" href="#pending" data-close>${esc(t("complete"))}</a></div>`);
+      <div class="actions" style="grid-template-columns:1fr"><button class="btn primary" data-close>${esc(t("got_it"))}</button></div>`);
   }
 
   // ---------------------------------------------------------------- lista
@@ -197,8 +206,8 @@
     const counted = order.filter((o) => o.x.status !== "excluded").sort((a, b) => (b.x.amountPen ?? b.x.amount) - (a.x.amountPen ?? a.x.amount));
     const excluded = order.filter((o) => o.x.status === "excluded").sort((a, b) => (b.x.amountPen ?? b.x.amount) - (a.x.amountPen ?? a.x.amount));
     const itemRow = ({ x, i }) => `
-        <button class="row ${x.status === "excluded" ? "off" : ""}" data-i="${i}">
-          <span class="name"><b>${esc(x.who)}</b><small>${esc([x.installment ? t("installment", { k: x.installment }) : "", x.description || whenLabel(x.when), x.currency === "USD" ? money(x.amount, "USD") : ""].filter(Boolean).join(" · "))}</small></span>
+        <button class="row ${x.status === "excluded" ? "off" : ""}" data-i="${i}">${catIcon(x.categoryId)}
+          <span class="name" style="flex:1"><b>${esc(x.who)}</b><small>${esc([x.installment ? t("installment", { k: x.installment }) : "", x.description || whenLabel(x.when), x.currency === "USD" ? money(x.amount, "USD") : ""].filter(Boolean).join(" · "))}</small></span>
           <span class="amt num">${money(x.amountPen ?? x.amount)}</span>
         </button>`;
     const box = $("#items");
@@ -208,7 +217,7 @@
       const rest = counted.slice(6).concat(excluded);
       const restSum = counted.slice(6).reduce((s, o) => s + (o.x.amountPen ?? o.x.amount), 0);
       box.innerHTML = counted.slice(0, 6).map(itemRow).join("") + `
-        <button class="row" id="others"><span class="name"><b>${esc(t("others"))}</b><small>${esc(t("payments_n", { n: counted.length - 6 }))}</small></span>
+        <button class="row" id="others"><span class="icon cat"></span><span class="name" style="flex:1"><b>${esc(t("others"))}</b><small>${esc(t("payments_n", { n: counted.length - 6 }))}</small></span>
           <span class="amt num">${money(restSum)}</span></button>
         <div id="rest" hidden>${rest.map(itemRow).join("")}</div>`;
       $("#others").addEventListener("click", () => { $("#others").hidden = true; $("#rest").hidden = false; });
@@ -390,8 +399,8 @@
     const items = await call("queue");
     const txs = items.filter((i) => i.kind === "tx");
     const rowTx = (x) => `
-      <button class="row" data-id="${x.id}">
-        <span class="name"><b>${esc(x.who)}</b><small>${esc(x.description || whenLabel(x.when))}</small></span>
+      <button class="row" data-id="${x.id}">${catIcon(x.categoryId)}
+        <span class="name" style="flex:1"><b>${esc(x.who)}</b><small>${esc(x.description || whenLabel(x.when))}</small></span>
         <span class="amt num">${money(x.amountPen ?? x.amount)}</span>
       </button>`;
     app().innerHTML = backBar("#", monthLabel(ym || new Date().toISOString().slice(0, 7))) + `
@@ -518,8 +527,10 @@
     if (sub === "categories") {
       const cats = await call("categories");
       app().innerHTML = back + `<h1>${esc(t("cat_title"))}</h1><p class="muted">${esc(t("cat_hint"))}</p>` +
-        cats.map((c) => `<div class="row"><input value="${esc(c.name)}" data-id="${c.id}" style="flex:1"><button class="muted" data-del="${c.id}" style="padding:8px">${esc(t("delete"))}</button></div>`).join("") +
-        `<div class="row"><input id="newc" placeholder="${esc(t("new_category"))}" style="flex:1"></div>`;
+        cats.map((c) => `<div class="catrow">${catIcon(c.id)}
+          <input value="${esc(c.name)}" data-id="${c.id}">
+          <button class="iconbtn" data-del="${c.id}" aria-label="${esc(t("delete"))}">${ICON.close}</button></div>`).join("") +
+        `<div class="catrow">${catIcon(-1)}<input id="newc" placeholder="${esc(t("new_category"))}"></div>`;
       app().querySelectorAll("[data-id]").forEach((i) => i.addEventListener("change", () => call("category.save", { id: Number(i.dataset.id), name: i.value }).catch(fail)));
       app().querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", async () => { await call("category.delete", { id: Number(b.dataset.del) }); settings("categories"); }));
       $("#newc").addEventListener("change", async (e) => { if (e.target.value.trim()) { await call("category.save", { name: e.target.value }); settings("categories"); } });

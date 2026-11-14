@@ -88,13 +88,18 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
         "payee.rename" -> { val n = ledger.rename(a.getLong("id"), a.optString("name")); mutated(); n }
         "tx.delete" -> { ledger.data.txs.removeIf { it.id == a.getLong("id") && it.source == "manual" }; mutated() }
         "categories" -> JSONArray(ledger.data.categories.map { c ->
-            JSONObject().put("id", c.id).put("name", c.name).put("n", ledger.data.txs.count { it.categoryId == c.id })
+            JSONObject().put("id", c.id).put("name", c.name).put("fixed", c.fixed).put("n", ledger.data.txs.count { it.categoryId == c.id })
         })
         "category.save" -> {
             val name = a.getString("name").trim().take(40)
             require(name.isNotEmpty()) { "name" }
-            if (a.has("id") && !a.isNull("id")) ledger.data.categories.firstOrNull { it.id == a.getLong("id") }?.name = name
-            else ledger.data.categories += Category((ledger.data.categories.maxOfOrNull { it.id } ?: 99) + 1, name)
+            val fixed = a.optBoolean("fixed", false)
+            if (a.has("id") && !a.isNull("id")) ledger.data.categories.firstOrNull { it.id == a.getLong("id") }?.let { c ->
+                c.name = name
+                if (a.has("fixed")) c.fixed = fixed
+            }
+            else ledger.data.categories += Category((ledger.data.categories.maxOfOrNull { it.id } ?: 99) + 1, name, fixed)
+            ledger.refreshAll()
             mutated()
         }
         "category.delete" -> {
@@ -198,7 +203,7 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
             .put("fixed", rows.filter { it.fixed }.sumOf { ledger.pen(it) }).put("fixedN", rows.count { it.fixed })
             .put("variable", rows.filter { !it.fixed }.sumOf { ledger.pen(it) }).put("variableN", rows.count { !it.fixed })
             .put("count", rows.size).put("pending", q.length())
-            .put("noDesc", (0 until q.length()).count { q.getJSONObject(it).let { o -> o.optString("kind") == "tx" && o.optString("description").isBlank() && o.optString("type") == "person" } })
+            .put("noDesc", rows.count { it.counterpartyType == "person" && it.description.isBlank() })
             .put("hasEmail", hasEmail()).put("hasData", ledger.data.txs.isNotEmpty())
     }
 
