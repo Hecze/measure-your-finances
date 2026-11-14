@@ -7,3 +7,10 @@ __pycache__/
 .env
 .venv/
 .pytest_cache/
+android/.gradle/
+android/**/build/
+android/local.properties
+android/.kotlin/
+*.apk
+*.jks
+!android/keystore/*.jks
