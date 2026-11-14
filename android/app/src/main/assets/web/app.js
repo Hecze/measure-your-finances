@@ -47,6 +47,8 @@
     right: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>',
     gear: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
     check: '<svg class="icon" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>',
+    eye: '<svg class="icon" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+    eyeOff: '<svg class="icon" viewBox="0 0 24 24"><path d="M9.9 4.2A10.4 10.4 0 0 1 12 4c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.2 3.2M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"/><path d="M14.1 14.1a3 3 0 0 1-4.2-4.2"/><path d="M2 2l20 20"/></svg>',
     close: '<svg class="icon sm" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     down: '<svg class="icon sm" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
     pencil: '<svg class="icon sm" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
@@ -604,9 +606,28 @@
         <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600">${esc(t("open_google"))}</a></li>
         <li>${esc(t("gmail_step3"))}</li></ol></div>
       <label>${esc(t("your_email"))}</label><input id="ge" type="email" autocomplete="email" value="${esc(s.email)}" placeholder="tu@gmail.com">
-      <label>${esc(t("app_password"))}</label><input id="gp" type="password" autocomplete="off" placeholder="${esc(s.hasPassword ? t("password_saved") : "xxxx xxxx xxxx xxxx")}">
+      <label>${esc(t("app_password"))}</label>
+      <div class="pw"><input id="gp" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${esc(s.hasPassword ? t("password_saved") : "xxxx xxxx xxxx xxxx")}">
+        <button class="iconbtn" id="eye" aria-label="${esc(t("show_password"))}">${ICON.eye}</button></div>
       <div class="actions" style="grid-template-columns:1fr"><button class="btn primary" id="gc">${esc(s.hasPassword ? t("read_now") : t("connect_and_read"))}</button></div>
       <div class="status" id="gs">${s.lastSync ? esc(t("last_read", { d: s.lastSync.slice(0, 16) })) : ""}</div>`;
+    $("#eye").addEventListener("click", () => {
+      const inp = $("#gp"), show = inp.type === "password";
+      inp.type = show ? "text" : "password";
+      $("#eye").innerHTML = show ? ICON.eyeOff : ICON.eye;
+    });
+    // Al volver de la página de Google con la contraseña copiada: se pega sola y, si hay correo, se conecta.
+    let autoTried = false;
+    const tryClipboard = async () => {
+      if (document.visibilityState !== "visible" || !location.hash.startsWith("#settings/gmail") || !$("#gp")) return;
+      const code = await native("clipboard").catch(() => "");
+      if (!code || $("#gp").value.replace(/\s+/g, "") === code) return;
+      $("#gp").value = code;
+      $("#gs").className = "status ok"; $("#gs").textContent = t("pasted_password");
+      if ($("#ge").value.trim().includes("@") && !autoTried) { autoTried = true; $("#gc").click(); }
+    };
+    document.addEventListener("visibilitychange", tryClipboard);
+    setTimeout(tryClipboard, 300);
     $("#gc").addEventListener("click", async () => {
       const btn = $("#gc"), st = $("#gs");
       const email = $("#ge").value.trim().toLowerCase();
@@ -615,7 +636,7 @@
       const pw = $("#gp").value.replace(/[\s\u00a0-]+/g, "");
       if (pw && !/^[a-zA-Z]{16}$/.test(pw)) {
         st.className = "status err";
-        st.textContent = t("err_pw_format", { n: pw.length });
+        st.textContent = pw.length === 16 ? t("err_pw_letters") : t("err_pw_format", { n: pw.length });
         return;
       }
       btn.disabled = true; st.className = "status"; st.textContent = t("reading_start");
@@ -624,7 +645,7 @@
       onProgress = (i, n) => { st.textContent = t("reading", { i, n }); };
       try {
         const r = await call("sync");
-        st.className = "status ok"; st.textContent = t("read_result", r);
+        st.className = "status ok"; st.textContent = t("read_result", r) + (r.failed ? "\n" + t("read_failed", { n: r.failed }) : "");
       } catch (e) {
         const [code, detail] = String(e.message || "").split("|");
         st.className = "status err";

@@ -25,6 +25,7 @@ class Bridge(private val activity: MainActivity, private val web: WebView) {
                         api.syncEmail { i, n -> js("window.MG_progress && MG_progress($i,$n)") }
                     }
                     "native.share" -> wrap { share(JSONObject(args)); null }
+                    "native.clipboard" -> wrap { clipboardText() }
                     else -> api.call(method, args)
                 }
             } catch (e: Exception) {
@@ -38,6 +39,27 @@ class Bridge(private val activity: MainActivity, private val web: WebView) {
         JSONObject().put("ok", true).put("data", block() ?: JSONObject.NULL).toString()
     } catch (e: Exception) {
         JSONObject().put("ok", false).put("error", e.message ?: "error").toString()
+    }
+
+    /**
+     * Texto del portapapeles (para pegar sola la contraseña de aplicación de Google al volver a la app).
+     * Android solo permite leerlo con la app en primer plano, y avisa al usuario cuando se lee.
+     */
+    private fun clipboardText(): String {
+        val latch = java.util.concurrent.CountDownLatch(1)
+        var text = ""
+        activity.runOnUiThread {
+            try {
+                val cm = activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                text = cm.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(activity)?.toString().orEmpty()
+            } finally {
+                latch.countDown()
+            }
+        }
+        latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+        // Solo devolvemos algo si parece una contraseña de aplicación (16 letras): nada más sale del portapapeles.
+        val clean = text.replace(Regex("[\\s\u00a0-]+"), "")
+        return if (Regex("^[a-zA-Z]{16}$").matches(clean)) clean else ""
     }
 
     fun js(code: String) = activity.runOnUiThread { web.evaluateJavascript(code, null) }

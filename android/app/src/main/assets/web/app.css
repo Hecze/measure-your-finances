@@ -148,3 +148,8 @@ pre.body { white-space: pre-wrap; word-break: break-word; background: var(--soft
 .seg.mini { margin: 0; flex: none; }
 .seg.mini button { padding: 6px 9px; font-size: .8rem; }
 .iconbtn { width: 34px; height: 34px; display: grid; place-items: center; color: var(--muted); border-radius: 10px; flex: none; }
+
+/* campo de contraseña con ojito */
+.pw { position: relative; }
+.pw input { padding-right: 50px; }
+.pw .iconbtn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }

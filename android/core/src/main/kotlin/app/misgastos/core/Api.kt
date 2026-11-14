@@ -316,12 +316,14 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
         if (s.email.isBlank() || pass.isNullOrBlank()) throw Exception("no_email")
         val mails = try {
             Imap.fetch(s.imapHost, s.email, pass, s.senders, s.daysBack, known, onProgress)
-        } catch (e: Imap.ImapException) {
+        } catch (e: Exception) {
+            // Mensaje claro: "auth|..." (contraseña), "connect|..." (red/servidor) o "read|..." (al leer los correos).
+            val msg = if (e is Imap.ImapException) e.message ?: "error" else "read|" + (e.javaClass.simpleName + ": " + (e.message ?: "")).take(200)
             synchronized(lock) {
-                s.lastSync = Text.fmt(now()); s.lastSyncOk = false; s.lastSyncResult = e.message ?: "error"
+                s.lastSync = Text.fmt(now()); s.lastSyncOk = false; s.lastSyncResult = msg
                 storage.save(ledger.data.toJson())
             }
-            throw Exception(e.message)
+            throw Exception(msg)
         }
         var newExp = 0; var unknown = 0; var imported = 0
         synchronized(lock) {
@@ -338,6 +340,6 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
             s.lastSyncResult = JSONObject().put("read", mails.size).put("new", newExp + imported).put("unknown", unknown).toString()
             storage.save(ledger.data.toJson())
         }
-        return JSONObject().put("read", mails.size).put("new", newExp + imported).put("unknown", unknown)
+        return JSONObject().put("read", mails.size).put("new", newExp + imported).put("unknown", unknown).put("failed", Imap.failed)
     }
 }

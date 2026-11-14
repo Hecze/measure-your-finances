@@ -11,7 +11,10 @@ import javax.mail.Message
 import javax.mail.Multipart
 import javax.mail.Part
 import javax.mail.Session
+import javax.mail.internet.ContentType
 import javax.mail.internet.InternetAddress
+import javax.mail.internet.MimeMessage
+import javax.mail.internet.MimeMultipart
 import javax.mail.search.ComparisonTerm
 import javax.mail.search.FromStringTerm
 import javax.mail.search.OrTerm
@@ -27,6 +30,9 @@ import javax.mail.search.SearchTerm
  */
 object Imap {
     class ImapException(msg: String) : Exception(msg)
+
+    /** Correos que no se pudieron leer en la última descarga (se reintentan la próxima vez). */
+    @Volatile var failed = 0
 
     /**
      * Descarga los correos nuevos de los remitentes de la lista. No toca los datos:
@@ -60,14 +66,17 @@ object Imap {
             val msgs = folder.search(AndTerm(ReceivedDateTerm(ComparisonTerm.GE, since), from))
             folder.fetch(msgs, FetchProfile().apply { add(FetchProfile.Item.ENVELOPE); add("Message-ID") })
             val out = mutableListOf<IncomingEmail>()
+            failed = 0
             for ((i, m) in msgs.withIndex()) {
                 onProgress(i + 1, msgs.size)
                 val id = m.getHeader("Message-ID")?.firstOrNull() ?: "noid-${m.receivedDate?.time}-${m.subject}"
                 if (id in known) continue
-                val parts = Parts()
-                walk(m, parts)
-                val received = (m.receivedDate ?: m.sentDate)?.toInstant()?.atZone(ZoneId.of("America/Lima"))?.toLocalDateTime()
-                out += IncomingEmail(id, addr(m.from), m.subject ?: "", parts.html, parts.text, received, parts.files)
+                // Un correo raro no debe frenar la lectura de los demás.
+                try {
+                    out += toIncoming(m, id)
+                } catch (e: Exception) {
+                    failed++
+                }
             }
             folder.close(false)
             return out
@@ -95,18 +104,42 @@ object Imap {
         val files = mutableListOf<Pair<String, ByteArray>>()
     }
 
+    /**
+     * Separa un correo en HTML, texto y adjuntos .xlsx.
+     * No depende de los "mailcap" de JavaMail (en Android pueden faltar y entonces getContent()
+     * devuelve un stream en vez de un Multipart): si hace falta, arma las partes a mano.
+     */
     private fun walk(p: Part, out: Parts) {
         val name = p.fileName
         when {
-            name != null && (Part.ATTACHMENT.equals(p.disposition, true) || name.lowercase().endsWith(".xlsx")) ->
-                if (name.lowercase().endsWith(".xlsx")) out.files += name to p.inputStream.readBytes()
+            name != null && name.lowercase().endsWith(".xlsx") -> out.files += name to p.inputStream.readBytes()
+            name != null && Part.ATTACHMENT.equals(p.disposition, true) -> {} // otros adjuntos: no interesan
             p.isMimeType("multipart/*") -> {
-                val mp = p.content as Multipart
+                val mp = (p.content as? Multipart) ?: MimeMultipart(p.dataHandler.dataSource)
                 for (i in 0 until mp.count) walk(mp.getBodyPart(i), out)
             }
-            p.isMimeType("text/html") && out.html.isEmpty() -> out.html = p.content.toString()
-            p.isMimeType("text/plain") && out.text.isEmpty() -> out.text = p.content.toString()
-            p.isMimeType("message/rfc822") -> (p.content as? Message)?.let { walk(it, out) }
+            p.isMimeType("message/rfc822") -> {
+                val inner = (p.content as? Message) ?: MimeMessage(null as Session?, p.inputStream)
+                walk(inner, out)
+            }
+            p.isMimeType("text/html") && out.html.isEmpty() -> out.html = textOf(p)
+            p.isMimeType("text/plain") && out.text.isEmpty() -> out.text = textOf(p)
         }
+    }
+
+    private fun textOf(p: Part): String {
+        val c = p.content
+        if (c is String) return c
+        val charset = runCatching { ContentType(p.contentType).getParameter("charset") }.getOrNull() ?: "UTF-8"
+        val bytes = p.inputStream.readBytes() // ya decodificado (base64 / quoted-printable)
+        return runCatching { String(bytes, java.nio.charset.Charset.forName(charset)) }.getOrElse { String(bytes, Charsets.UTF_8) }
+    }
+
+    /** Convierte un mensaje IMAP/MIME en lo que procesa el motor. Público para poder probarlo. */
+    fun toIncoming(m: Message, id: String): IncomingEmail {
+        val parts = Parts()
+        walk(m, parts)
+        val received = (m.receivedDate ?: m.sentDate)?.toInstant()?.atZone(ZoneId.of("America/Lima"))?.toLocalDateTime()
+        return IncomingEmail(id, addr(m.from), m.subject ?: "", parts.html, parts.text, received, parts.files)
     }
 }

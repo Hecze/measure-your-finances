@@ -43,9 +43,11 @@ android {
         resources {
             excludes += setOf(
                 "META-INF/*.md", "META-INF/LICENSE*", "META-INF/NOTICE*", "META-INF/DEPENDENCIES", "META-INF/INDEX.LIST",
-                "META-INF/*.kotlin_module", "META-INF/versions/**", "META-INF/javamail.*", "META-INF/mailcap*",
+                "META-INF/*.kotlin_module", "META-INF/versions/**",
             )
-            pickFirsts += setOf("META-INF/mimetypes.default", "META-INF/javamail.default.providers", "META-INF/javamail.default.address.map")
+            // JavaMail necesita estos archivos para abrir correos con varias partes (HTML + texto + adjuntos).
+            pickFirsts += setOf("META-INF/mailcap", "META-INF/mailcap.default", "META-INF/mimetypes.default",
+                "META-INF/javamail.default.providers", "META-INF/javamail.default.address.map", "META-INF/javamail.charset.map")
         }
     }
 }
