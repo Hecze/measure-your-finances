@@ -174,8 +174,8 @@
       ${breakdown}
       <div>${d.items.map((x, i) => `
         <button class="row ${x.status === "excluded" ? "off" : ""}" data-i="${i}">
-          <span class="name"><b>${esc(x.who)}</b><small>${esc(x.description || whenLabel(x.when))}</small></span>
-          <span class="amt num">${money(x.amount, x.currency)}</span>
+          <span class="name"><b>${esc(x.who)}</b><small>${esc([x.installment ? t("installment", { k: x.installment }) : "", x.description || whenLabel(x.when), x.currency === "USD" ? money(x.amount, "USD") : ""].filter(Boolean).join(" · "))}</small></span>
+          <span class="amt num">${money(x.amountPen ?? x.amount)}</span>
         </button>`).join("") || `<p class="empty">${esc(t("empty_month"))}</p>`}</div>
       ${group === "all" ? `<button class="more" data-add>${esc(t("add_cash"))}</button>` : ""}`;
     app().querySelectorAll("[data-i]").forEach((b) => b.addEventListener("click", () => {
@@ -216,12 +216,16 @@
       el.innerHTML = `
         <div class="card">
           ${opts.count ? `<div class="count">${esc(opts.count)}</div>` : ""}
-          <div class="amount num">${money(x.amount, x.currency)}</div>
+          <div class="amount num" data-amount title="${esc(t("edit_amount"))}">${money(x.amount, x.currency)}</div>
+          ${x.currency === "USD" ? `<div class="when">≈ ${money(x.amountPen)}</div>` : ""}
+          ${x.installment ? `<div class="when">${esc(t("installment", { k: x.installment }))}</div>` : ""}
           <div class="who">${esc(x.who)}</div>
           <div class="when">${esc(whenLabel(x.when))}${x.account ? " · " + esc(x.account) : ""}</div>
           ${x.hint ? `<div class="hint">${esc(hintText(x.hint))}</div>` : ""}
           <div class="ask">
             <input data-desc placeholder="${esc(t("what_for"))}" value="${esc(x.description)}" autocomplete="off" enterkeyhint="done">
+            ${x.credit ? `<select data-inst style="margin-top:12px">${[1, 2, 3, 4, 5, 6, 8, 10, 12, 18, 24, 36].map((n) =>
+              `<option value="${n}" ${n === (x.installments || 1) ? "selected" : ""}>${esc(n === 1 ? t("single_payment") : t("n_installments", { n }))}</option>`).join("")}</select>` : ""}
             <div class="seg"><button data-fx="1" class="${fixed ? "on" : ""}">${esc(t("fixed_one"))}</button><button data-fx="0" class="${fixed ? "" : "on"}">${esc(t("variable_one"))}</button></div>
             <div class="chips">${cats.map((c) => `<button class="chip ${c.id === cat ? "on" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("")}</div>
             <label class="check" data-wordbox hidden><input type="checkbox" data-word> <span data-wordlabel></span></label>
@@ -242,6 +246,15 @@
           ${opts.skip ? `<button class="link" data-skip>${esc(t("skip"))}</button>` : ""}
         </div>`;
       const q = (s) => el.querySelector(s);
+      // Monto editable: tocarlo lo convierte en un campo (para el caso raro de haber pagado por otros).
+      let newAmount = null;
+      q("[data-amount]").addEventListener("click", () => {
+        if (q("[data-amount] input")) return;
+        q("[data-amount]").innerHTML = `<input type="number" inputmode="decimal" step="0.01" min="0" value="${x.amount}" style="font-size:2rem;text-align:center;font-weight:700">`;
+        const inp = q("[data-amount] input");
+        inp.focus(); inp.select();
+        inp.addEventListener("input", () => { const v = parseFloat(inp.value); newAmount = v > 0 ? v : null; });
+      });
       // "Siempre que diga ..." solo para descripciones cortas (una palabra o frase breve).
       const shortWord = () => { const d = q("[data-desc]").value.trim(); return d && d.split(/\s+/).length <= 3 ? d : ""; };
       const syncWord = () => {
@@ -268,6 +281,9 @@
         const args = { id: x.id, status: "confirmed", description: q("[data-desc]").value };
         if (cat !== x.categoryId || x.categorySource === "persona" || x.categorySource === "ia") args.categoryId = cat;
         if (fixed !== x.fixed) args.fixed = fixed;
+        if (newAmount !== null && newAmount !== x.amount) args.amount = newAmount;
+        const inst = q("[data-inst]");
+        if (inst && Number(inst.value) !== (x.installments || 1)) args.installments = Number(inst.value);
         if (cat !== null && !q("[data-wordbox]").hidden && q("[data-word]").checked) { args.categoryId = cat; args.rememberWord = true; }
         await call("tx.update", args).then(() => { toast(t("saved")); opts.onDone("ok"); }).catch(fail);
       });

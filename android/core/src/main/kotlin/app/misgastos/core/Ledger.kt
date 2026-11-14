@@ -267,6 +267,9 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
         val r: ParseResult = if (data.ignoredSubjects.any { norm(m.subject).contains(norm(it)) })
             ParseResult(Kind.IGNORE, "regla", "Marcaste correos como este como 'no es un movimiento'")
         else Parsers.parse(e)
+        // Tipo de cambio real: el del pago de tu tarjeta en dólares (compras dólares con soles).
+        // No el de "entre mis cuentas" al vender dólares: ese es más bajo y no es lo que te cuestan tus compras.
+        if (r.parser == "bcp_pago_tarjeta_propia" && r.currency == "USD") learnFx(e.body, r.occurredAt ?: m.receivedAt)
         val rec = EmailRec(m.messageId, m.from, m.subject, m.receivedAt?.let { Text.fmt(it) }, r.kind.name.lowercase(), r.reason,
             parsedAmount = r.amount, parsedCurrency = r.currency, parsedCounterparty = r.counterparty)
         data.emails[m.messageId] = rec
@@ -294,7 +297,8 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
                     Text.fmt(r.occurredAt!!), r.counterparty, r.counterpartyType, r.description,
                     status = if (r.kind == Kind.NOT_EXPENSE) "excluded" else "pending",
                     excludeReason = if (r.kind == Kind.NOT_EXPENSE) r.reason else "",
-                    flags = r.flags.toMutableSet(), externalRef = r.externalRef, emailId = m.messageId, fixedHint = r.fixedHint)
+                    flags = r.flags.toMutableSet(), externalRef = r.externalRef, emailId = m.messageId, fixedHint = r.fixedHint,
+                    installments = r.installments)
                 val (state, tx) = add(t)
                 rec.txId = tx.id
                 if (state != AddState.NEW) rec.decision = "duplicate"
@@ -348,9 +352,38 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
     // ================================================================ consultas
     fun pen(t: Tx) = if (t.currency == "USD") t.amount * data.settings.usdToPen else t.amount
 
-    fun counted(ym: YearMonth): List<Tx> {
-        val p = ym.toString()
-        return data.txs.filter { it.direction == "out" && it.status != "excluded" && it.occurredAt.startsWith(p) }
+    /**
+     * Gastos de un mes. Las compras en cuotas aparecen en cada mes con solo la cuota de ese mes
+     * (copias con el monto dividido y la etiqueta "k/N").
+     */
+    fun monthTxs(ym: YearMonth, includeExcluded: Boolean = false): List<Tx> {
+        val out = mutableListOf<Tx>()
+        for (t in data.txs) {
+            if (t.direction != "out" || (!includeExcluded && t.status == "excluded")) continue
+            val start = YearMonth.parse(t.occurredAt.substring(0, 7))
+            if (t.installments <= 1) {
+                if (start == ym) out += t
+                continue
+            }
+            val k = java.time.temporal.ChronoUnit.MONTHS.between(start, ym).toInt()
+            if (k in 0 until t.installments) {
+                out += t.copy(amount = Math.round(t.amount / t.installments * 100) / 100.0, flags = t.flags.toMutableSet())
+                    .also { it.installmentLabel = "${k + 1}/${t.installments}" }
+            }
+        }
+        return out
+    }
+
+    fun counted(ym: YearMonth): List<Tx> = monthTxs(ym)
+
+    /** Guarda el tipo de cambio que aparece en un correo del banco ("Tipo de cambio S/ 3.4510"), si es el más reciente. */
+    fun learnFx(body: String, at: LocalDateTime?) {
+        val m = Regex("Tipo de cambio\\s*:?\\s*\\|?\\s*S/\\.?\\s*(\\d\\.\\d{2,4})", RegexOption.IGNORE_CASE).find(Text.flat(body)) ?: return
+        val v = m.groupValues[1].toDoubleOrNull() ?: return
+        if (v < 2.0 || v > 6.0) return
+        val date = at?.let { Text.fmt(it) } ?: return
+        val s = data.settings
+        if (s.fxDate == null || date > s.fxDate!!) { s.usdToPen = v; s.fxDate = date }
     }
 
     fun lastYape(): String? = data.txs.filter { it.source == "yape" }.maxOfOrNull { it.occurredAt }
@@ -390,8 +423,10 @@ class Ledger(val data: AppData, private val now: () -> LocalDateTime = { LocalDa
     /** Cambios del usuario sobre un gasto. Aprende cuando corresponde. */
     fun update(id: Long, description: String? = null, categoryId: Long? = null, clearCategory: Boolean = false,
                fixed: Boolean? = null, status: String? = null, excludeReason: String? = null, remember: Boolean = false,
-               rememberWord: Boolean = false) {
+               rememberWord: Boolean = false, amount: Double? = null, installments: Int? = null) {
         val t = data.txs.firstOrNull { it.id == id } ?: return
+        amount?.let { if (it > 0) t.amount = Math.round(it * 100) / 100.0 }
+        installments?.let { t.installments = it.coerceIn(1, 60) }
         val key = counterpartyKey(t.counterparty)
         description?.let {
             if (it.trim() != t.description) {

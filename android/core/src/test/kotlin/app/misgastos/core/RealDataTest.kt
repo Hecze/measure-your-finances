@@ -38,6 +38,7 @@ class RealDataTest {
             println("   $k: ${v.size} gastos, S/ ${"%.2f".format(v.sumOf { l.pen(it) })} [${v.groupingBy { it.categorySource }.eachCount()}]")
         }
         out.filter { it.description.isNotBlank() }.forEach { println("     '${it.description.take(30)}' -> ${names[it.categoryId] ?: "-"} (${it.categorySource})") }
+        println("== Tipo de cambio: ${l.data.settings.usdToPen} (${l.data.settings.fxDate})")
         println("== Pendientes: ${l.queue().size}  movimientos: ${l.data.txs.size}")
         assertEquals(emptyList(), unknown)
     }

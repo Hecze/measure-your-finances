@@ -10,6 +10,9 @@ App Android open source para saber **cuánto gastas y en qué**, leyendo los cor
 - **Pendientes, de a uno**: "¿En qué fue?", Fijo/Variable, categoría, y *Listo* o *No es gasto*. Solo se piden descripciones de los pagos del mes actual.
 - **No adivina.** Cada tipo de correo tiene una plantilla exacta. Si llega uno que no reconoce, te pregunta.
 - **Mide gastos, no ingresos.** Tú decides qué no cuenta: cambio de efectivo, encargos, pases de dinero, transferencias a tus propias cuentas.
+- **Una sola moneda en pantalla**: todo se suma y se muestra en soles. Los gastos en dólares (tarjeta o cuenta en dólares) se convierten con el tipo de cambio del último pago de tu tarjeta en dólares que aparece en tus correos del BCP (si aún no hay, 3.40). El monto original se ve debajo.
+- **Cuotas**: una compra con tarjeta de crédito en cuotas cuenta solo la cuota de cada mes.
+- **Monto editable**: toca el monto de un gasto para cambiarlo (por ejemplo, si pagaste por otros).
 - **Español e inglés** (Ajustes → Idioma).
 
 ## De dónde salen los datos

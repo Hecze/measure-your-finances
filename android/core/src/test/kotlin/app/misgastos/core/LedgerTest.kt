@@ -48,6 +48,34 @@ class LedgerTest {
         assertEquals(2, l.data.txs.count { it.amount == 6.0 })
     }
 
+    @Test fun cuotasCuentanSoloLaCuotaDelMes() {
+        val l = ledger()
+        l.importYape(YapeExcel.parse(yapeXlsx(listOf(listOf("PAGASTE", "Ana Per*", "TIENDA EJEMPLO SAC", "1200.00", "laptop", "20/10/2026 10:00:00")))))
+        val t = l.data.txs.first()
+        l.update(t.id, installments = 12)
+        assertEquals(100.0, l.counted(java.time.YearMonth.of(2026, 10)).sumOf { it.amount })
+        assertEquals(100.0, l.counted(java.time.YearMonth.of(2027, 9)).sumOf { it.amount })
+        assertEquals(0.0, l.counted(java.time.YearMonth.of(2027, 10)).sumOf { it.amount })
+        assertEquals("2/12", l.counted(java.time.YearMonth.of(2026, 11)).first().installmentLabel)
+    }
+
+    @Test fun tipoDeCambioDelCorreo() {
+        val l = ledger()
+        assertEquals(3.40, l.data.settings.usdToPen) // por defecto
+        val html = html("pago_tarjeta.html").replace("S/ 293.06", "\$ 10.16")
+            .replace("Monto pagado", "Tipo de cambio</td><td><b>S/ 3.4510</b></td></tr><tr><td>Monto pagado")
+        l.processEmail(IncomingEmail("<8>", BCP, "Constancia de Pago de Tarjeta de Crédito Propia", html,
+            receivedAt = LocalDateTime.of(2026, 11, 11, 20, 1)))
+        assertEquals(3.4510, l.data.settings.usdToPen)
+    }
+
+    @Test fun montoEditable() {
+        val l = ledger()
+        l.importYape(YapeExcel.parse(yapeXlsx(listOf(listOf("PAGASTE", "Ana Per*", "Rosa Per*", "120.00", "cena", "10/11/2026 21:00:00")))))
+        l.update(l.data.txs.first().id, amount = 40.0)
+        assertEquals(40.0, l.data.txs.first().amount)
+    }
+
     @Test fun paseDeDineroYCambioDeEfectivo() {
         val l = ledger()
         l.importYape(YapeExcel.parse(yapeXlsx(ROWS)))

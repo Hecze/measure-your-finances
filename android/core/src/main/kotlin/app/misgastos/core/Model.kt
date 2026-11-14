@@ -29,7 +29,12 @@ data class Tx(
     var dedupeKey: String? = null,
     var emailId: String? = null,
     var fixedHint: Boolean = false,
+    /** Compra en cuotas: cada mes cuenta amount / installments. */
+    var installments: Int = 1,
 ) {
+    /** Solo para mostrar ("2/6"); no se guarda. */
+    @Transient var installmentLabel: String = ""
+
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("source", source).put("direction", direction).put("account", account)
         .put("accountDetail", accountDetail).put("amount", amount).put("currency", currency).put("occurredAt", occurredAt)
@@ -38,6 +43,7 @@ data class Tx(
         .put("fixed", fixed).put("fixedSource", fixedSource)
         .put("excludeReason", excludeReason).put("flags", JSONArray(flags.sorted())).put("externalRef", externalRef)
         .put("dedupeKey", dedupeKey ?: JSONObject.NULL).put("emailId", emailId ?: JSONObject.NULL).put("fixedHint", fixedHint)
+        .put("installments", installments)
 
     companion object {
         fun fromJson(o: JSONObject) = Tx(
@@ -55,6 +61,7 @@ data class Tx(
             dedupeKey = if (o.isNull("dedupeKey")) null else o.optString("dedupeKey"),
             emailId = if (o.isNull("emailId")) null else o.optString("emailId"),
             fixedHint = o.optBoolean("fixedHint"),
+            installments = o.optInt("installments", 1).coerceIn(1, 60),
         )
     }
 }
@@ -117,7 +124,9 @@ class Settings {
     var imapHost: String = "imap.gmail.com"
     var daysBack: Int = 120
     var ownerNames: MutableList<String> = mutableListOf()
-    var usdToPen: Double = 3.75
+    /** Tipo de cambio: el último que aparece en los correos del banco; si no hay, 3.40. */
+    var usdToPen: Double = DEFAULT_FX
+    var fxDate: String? = null
     var lastSync: String? = null
     var lastSyncResult: String = ""
     var lastSyncOk: Boolean = true
@@ -128,11 +137,13 @@ class Settings {
     var aiBaseUrl: String = ""
 
     fun toJson(): JSONObject = JSONObject().put("email", email).put("imapHost", imapHost).put("daysBack", daysBack)
-        .put("ownerNames", JSONArray(ownerNames)).put("usdToPen", usdToPen).put("lastSync", lastSync ?: JSONObject.NULL)
+        .put("ownerNames", JSONArray(ownerNames)).put("usdToPen", usdToPen).put("fxDate", fxDate ?: JSONObject.NULL).put("lastSync", lastSync ?: JSONObject.NULL)
         .put("lastSyncResult", lastSyncResult).put("lastSyncOk", lastSyncOk).put("senders", JSONArray(senders))
         .put("language", language).put("aiProvider", aiProvider).put("aiModel", aiModel).put("aiBaseUrl", aiBaseUrl)
 
     companion object {
+        const val DEFAULT_FX = 3.40
+
         /** Remitentes que se leen. Ningún otro correo se descarga. */
         val DEFAULT_SENDERS = listOf(
             "notificaciones@yape.pe", "notificaciones@notificacionesbcp.com.pe", "bbva.com.pe", "bbva.pe",
@@ -146,7 +157,10 @@ class Settings {
             s.imapHost = o.optString("imapHost", "imap.gmail.com")
             s.daysBack = o.optInt("daysBack", 120)
             s.ownerNames = o.optJSONArray("ownerNames")?.let { a -> (0 until a.length()).map { a.getString(it) }.toMutableList() } ?: mutableListOf()
-            s.usdToPen = o.optDouble("usdToPen", 3.75)
+            s.usdToPen = o.optDouble("usdToPen", DEFAULT_FX)
+            s.fxDate = if (o.isNull("fxDate")) null else o.optString("fxDate")
+            // 3.75 era un valor por defecto equivocado de versiones anteriores.
+            if (s.fxDate == null && s.usdToPen == 3.75) s.usdToPen = DEFAULT_FX
             s.lastSync = if (o.isNull("lastSync")) null else o.optString("lastSync")
             s.lastSyncResult = o.optString("lastSyncResult")
             s.lastSyncOk = o.optBoolean("lastSyncOk", true)

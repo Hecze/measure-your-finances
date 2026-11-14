@@ -35,6 +35,8 @@ data class ParseResult(
     val flags: MutableList<String> = mutableListOf(),
     /** Pista para fijo/variable: pagos de servicios suelen ser fijos. */
     var fixedHint: Boolean = false,
+    /** Número de cuotas si el correo lo indica (compras con tarjeta de crédito). */
+    var installments: Int = 1,
 ) {
     fun money(m: Money?) {
         if (m != null) {
@@ -219,6 +221,9 @@ object Parsers {
         r.counterparty = cp
         r.counterpartyType = type
         if (type == "person") r.flags += "p2p_via_tarjeta"
+        // Cuotas: solo si el correo lo dice explícitamente ("Número de cuotas | 6").
+        field(t, "Número de cuotas", "Nro. de cuotas", "Cuotas").let { Regex("^\\d{1,2}\\b").find(it.trim())?.value?.toIntOrNull() }
+            ?.takeIf { it in 2..60 }?.let { r.installments = it }
         if (amt == null) return missing(r, "el monto ('Total del consumo')")
         r.money(amt)
         return r

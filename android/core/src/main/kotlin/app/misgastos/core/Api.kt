@@ -70,6 +70,8 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
                 excludeReason = a.optString("reason"),
                 remember = a.optBoolean("remember"),
                 rememberWord = a.optBoolean("rememberWord"),
+                amount = if (a.has("amount")) a.getDouble("amount") else null,
+                installments = if (a.has("installments")) a.getInt("installments") else null,
             )
             mutated()
             ledger.data.txs.firstOrNull { it.id == a.getLong("id") }?.let { txView(it) }
@@ -170,6 +172,9 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
             .put("categoryId", t.categoryId ?: JSONObject.NULL).put("categorySource", t.categorySource)
             .put("fixed", t.fixed).put("fixedSource", t.fixedSource).put("status", t.status).put("excludeReason", t.excludeReason)
             .put("type", t.counterpartyType).put("source", t.source).put("direction", t.direction)
+            .put("installments", t.installments).put("installment", t.installmentLabel)
+            .put("credit", t.accountDetail.contains("Crédito"))
+            .put("amountPen", Math.round(ledger.pen(t) * 100) / 100.0) // vista unificada en soles
         ledger.hint(t)?.let { (code, params) -> o.put("hint", JSONObject().put("code", code).put("params", JSONObject(params))) }
         return o
     }
@@ -196,7 +201,7 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
 
     private fun list(ymStr: String?, group: String): JSONObject {
         val ym = ym(ymStr)
-        val all = ledger.data.txs.filter { it.direction == "out" && it.occurredAt.startsWith(ym.toString()) }
+        val all = ledger.monthTxs(ym, includeExcluded = true) // incluye la cuota del mes de compras en cuotas
         val rows = when {
             group == "fixed" -> all.filter { it.fixed }
             group == "variable" -> all.filter { !it.fixed }
