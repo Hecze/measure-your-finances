@@ -30,7 +30,14 @@
   let onProgress = null;
   window.MG_progress = (i, n) => onProgress && onProgress(i, n);
   window.MG_sharedFile = (b64) => { sharedFile = b64; go("import"); };
-  window.MG_refresh = () => render();
+  // Si la lectura de Gmail termina mientras editas algo, la pantalla se actualiza después (nunca te cierra lo que estás haciendo).
+  let refreshLater = false;
+  const busy = () => !!document.querySelector(".sheet-bg") || /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || "");
+  window.MG_refresh = () => { if (busy()) { refreshLater = true; return; } render(); };
+  const flushRefresh = () => { if (refreshLater && !busy()) { refreshLater = false; render(); } };
+  let lastFocusOut = 0;
+  document.addEventListener("focusout", () => { lastFocusOut = Date.now(); setTimeout(flushRefresh, 300); });
+  window.addEventListener("hashchange", () => { refreshLater = false; });
   let sharedFile = null;
   const native = (action, args) => window.AndroidBridge ? call("native." + action, args) : Promise.resolve(null);
 
@@ -553,6 +560,11 @@
       q("[data-wordlabel]").textContent = t("always_word", { w });
     };
     q("[data-desc]").addEventListener("input", syncWord);
+    // La descripción se guarda apenas sales del campo: nunca se pierde lo escrito.
+    q("[data-desc]").addEventListener("change", () => {
+      const v = q("[data-desc]").value;
+      if (v !== x.description) call("tx.update", { id: x.id, description: v }).then(() => { x.description = v; }).catch(fail);
+    });
     q("[data-desc]").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); q("[data-ok]").click(); } });
     q("[data-catsel]").addEventListener("click", () => { q("[data-catlist]").hidden = !q("[data-catlist]").hidden; });
     qa("[data-cat]").forEach((b) => b.addEventListener("click", () => {
@@ -966,8 +978,12 @@
     bg.className = "sheet-bg";
     bg.innerHTML = `<div class="sheet"><div class="grab"></div>${html}</div>`;
     document.body.appendChild(bg);
-    const close = () => bg.remove();
-    bg.addEventListener("click", (e) => { if (e.target === bg || e.target.closest("[data-close]")) close(); });
+    const close = () => { bg.remove(); setTimeout(flushRefresh, 50); };
+    bg.addEventListener("click", (e) => {
+      if (e.target.closest("[data-close]")) return close();
+      // Al cerrarse el teclado la hoja se mueve: un toque justo después no debe caer en el fondo y cerrarla.
+      if (e.target === bg && Date.now() - lastFocusOut > 700) close();
+    });
     return close;
   }
 
