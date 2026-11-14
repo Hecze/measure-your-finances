@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row between wrap"><h1>Correos procesados</h1>
+  <button class="btn" id="sync-btn">🔄 Leer correos ahora</button></div>
+<p class="muted">Solo se leen correos de los remitentes de <a href="/reglas">tu lista de bancos</a>. Cada correo tiene una decisión visible: nada se descarta en silencio.
+{% if last_sync %}Última lectura: {{ last_sync.started_at }} ({{ 'ok' if last_sync.ok else 'con error' }}): {{ last_sync.summary }}{% endif %}</p>
+{% set labels = {'expense':'Gasto','not_expense':'No es gasto','income':'Ingreso','ignored':'Ignorado','ignore':'No es movimiento','duplicate':'Duplicado','unknown':'Sin reconocer','import':'Excel de Yape','error':'Error'} %}
+<div class="tabs">
+  <a href="/correos" class="{{ 'on' if not filt }}">Todos</a>
+  {% for k, n in counts.items() %}<a href="/correos?d={{ k }}" class="{{ 'on' if filt == k }}">{{ labels.get(k, k) }} ({{ n }})</a>{% endfor %}
+</div>
+{% if rows %}
+<div class="table-wrap card tight"><table class="table">
+  <thead><tr><th>Fecha</th><th>Asunto</th><th>Decisión</th><th>Por qué</th></tr></thead>
+  <tbody>{% for e in rows %}
+    <tr>
+      <td class="num">{{ (e.received_at or '')[:16] }}</td>
+      <td><a href="/correos/{{ e.id }}">{{ e.subject }}</a><br><small>{{ e.from_addr }}</small></td>
+      <td><span class="tag {{ 'bad' if e.decision == 'unknown' else ('good' if e.decision in ('expense','import') else '') }}">{{ labels.get(e.decision, e.decision) }}</span></td>
+      <td><small>{{ e.reason or e.decision_source }}</small></td>
+    </tr>{% endfor %}
+  </tbody></table></div>
+{% else %}<div class="card empty">Aún no hay correos. Configura tu correo en <a href="/ajustes">Ajustes</a> y pulsa "Leer correos".</div>{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById("sync-btn").addEventListener("click", async (ev) => {
+  const b = ev.target; b.disabled = true; b.textContent = "Leyendo…";
+  try { const r = await App.api("/api/sync"); App.toast(r.ok ? "Listo" : (r.error || "Error")); setTimeout(() => location.reload(), 800); }
+  catch (e) { App.toast(e.message); b.disabled = false; }
+});
+</script>
+{% endblock %}

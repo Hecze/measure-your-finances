@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block title %}Mis Gastos{% endblock %}</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💸</text></svg>">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js"></script>
+</head>
+<body>
+<header class="top {{ 'wide' if wide }}">
+  {% block top %}<a class="back" href="/">‹ Inicio</a>{% endblock %}
+  <a class="icon" href="/ajustes" aria-label="Ajustes">⚙︎</a>
+</header>
+<main class="{{ 'wide' if wide }}">
+{% block content %}{% endblock %}
+</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>

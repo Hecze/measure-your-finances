@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block top %}<a class="back" href="/?m={{ ym }}">‹ {{ month }}</a>{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+<div class="hero" style="margin-top:0"><div class="total num" style="font-size:2rem">{{ total | money }}</div></div>
+<div class="list">
+  {% for t in items %}
+  <a class="item {{ 'off' if t.status == 'excluded' }}" href="/t/{{ t.id }}" data-i="{{ loop.index0 }}">
+    <span class="ico">{{ t.icon }}</span>
+    <span class="name">{{ t.who }}<small>{{ t.description or t.when }}</small></span>
+    <span class="amt num">{{ t.amount | money(t.currency) }}</span>
+  </a>
+  {% else %}<p class="empty">Nada por aquí.</p>{% endfor %}
+</div>
+{% if not c %}<a class="more" href="#" onclick="document.getElementById('add').showModal();return false">＋ Agregar gasto en efectivo</a>{% endif %}
+
+<dialog id="sheet"><div class="sheet"><div class="card-tx" id="edit" style="padding-top:0"></div></div></dialog>
+<dialog id="add">
+  <form class="sheet" id="add-form">
+    <h1 style="margin-top:0">Gasto en efectivo</h1>
+    <input name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Monto (S/)" required>
+    <label></label><input name="description" placeholder="¿En qué?">
+    <label></label><input name="counterparty" placeholder="¿A quién? (opcional)">
+    <div class="actions"><button type="button" class="btn" onclick="this.closest('dialog').close()">Cancelar</button><button class="btn primary">Guardar</button></div>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}
+<script>
+const items = {{ items | tojson }};
+const cats = {{ cats | tojson }};
+const sheet = document.getElementById("sheet");
+document.querySelectorAll("[data-i]").forEach((a) => a.addEventListener("click", (ev) => {
+  ev.preventDefault();
+  App.txCard(document.getElementById("edit"), items[+a.dataset.i], cats, { focus: false, onDone: () => location.reload() });
+  sheet.showModal();
+}));
+sheet.addEventListener("click", (ev) => { if (ev.target === sheet) sheet.close(); });
+const add = document.getElementById("add-form");
+if (add) add.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const d = Object.fromEntries(new FormData(add)); d.account = "Efectivo";
+  await App.api("/api/tx", d); location.reload();
+});
+</script>
+{% endblock %}

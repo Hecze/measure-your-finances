@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Categorías</h1>
+<p class="muted">Pon un presupuesto mensual si quieres. Las palabras clave ayudan a categorizar solo.</p>
+<div class="list">
+{% for c in cats + [{'id': '', 'name': '', 'icon': '＋', 'color': '#888888', 'keywords': '', 'monthly_budget': None}] %}
+  <details class="item" style="display:block">
+    <summary class="row between" style="color:var(--text);list-style:none">
+      <span>{{ c.icon }} {{ c.name or 'Nueva categoría' }}</span>
+      <span class="muted num">{{ ('S/ ' ~ (c.monthly_budget | int) ~ '/mes') if c.monthly_budget else '' }}</span>
+    </summary>
+    <form class="cat-form" style="margin-top:8px">
+      <input type="hidden" name="id" value="{{ c.id }}"><input type="hidden" name="color" value="{{ c.color }}">
+      <div class="row"><input name="icon" value="{{ '' if c.icon == '＋' else c.icon }}" placeholder="🙂" style="width:64px"><input name="name" value="{{ c.name }}" placeholder="Nombre" required></div>
+      <label>Presupuesto mensual (S/)</label><input name="monthly_budget" type="number" step="1" value="{{ c.monthly_budget if c.monthly_budget is not none else '' }}">
+      <label>Palabras clave</label><textarea name="keywords" rows="2">{{ c.keywords }}</textarea>
+      <div class="row" style="margin-top:10px"><button class="btn sm primary">Guardar</button>
+        {% if c.id %}<button type="button" class="btn sm" data-del="{{ c.id }}">Borrar</button>{% endif %}</div>
+    </form>
+  </details>
+{% endfor %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll(".cat-form").forEach(f => f.addEventListener("submit", async (ev) => {
+  ev.preventDefault(); await App.api("/api/categories", Object.fromEntries(new FormData(f))); location.reload();
+}));
+document.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", async () => {
+  if (!confirm("¿Borrar categoría?")) return;
+  await App.api("/api/categories/" + b.dataset.del, null, "DELETE"); location.reload();
+}));
+</script>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block top %}
+<div class="month">
+  <a href="/?m={{ d.prev_ym }}" aria-label="Mes anterior">‹</a>
+  <span>{{ month }}</span>
+  {% if not is_current %}<a href="/?m={{ d.next_ym }}" aria-label="Mes siguiente">›</a>{% endif %}
+</div>
+{% endblock %}
+{% block content %}
+<div class="hero">
+  <div class="total num">{{ d.total | money }}</div>
+  <div class="sub">
+    {% if delta is not none and d.prev_total %}
+      <span class="{{ 'up' if delta > 0 else 'down' }}">{{ delta | abs }}% {{ 'más' if delta > 0 else 'menos' }}</span> que en {{ prev_month }}
+    {% else %}gastado{% endif %}
+  </div>
+</div>
+
+{% if n_todo %}
+<a class="todo" href="/pendientes"><span>{{ n_todo }} {{ 'pendiente' if n_todo == 1 else 'pendientes' }}</span><span>›</span></a>
+{% endif %}
+
+<div class="list">
+  {% set named = d.categories | selectattr('id') | list %}
+  {% set top = (named[0].total if named else 1) %}
+  {% for c in named %}
+  <a class="item" href="/lista?m={{ d.ym }}&c={{ c.id }}">
+    <span class="ico">{{ c.icon }}</span>
+    <span class="name">{{ c.name }}</span>
+    <span class="amt num">{{ c.total | money }}</span>
+    <span class="bar"><i style="width:{{ (100 * c.total / top) | round(1) }}%"></i></span>
+  </a>
+  {% endfor %}
+  {% for c in d.categories if not c.id %}
+  <a class="item" href="/lista?m={{ d.ym }}&c=none" style="color:var(--muted)">
+    <span class="ico">·</span>
+    <span class="name">Sin clasificar <small>{{ c.n }} pagos</small></span>
+    <span class="amt num">{{ c.total | money }}</span>
+  </a>
+  {% endfor %}
+  {% if not d.categories %}<p class="empty">Aún no hay gastos en {{ month | lower }}.</p>{% endif %}
+</div>
+{% if d.categories %}<a class="more" href="/lista?m={{ d.ym }}">Ver todos los gastos</a>{% endif %}
+
+{% if n_nodesc %}
+<dialog id="tip">
+  <div class="sheet">
+    <h1 style="margin-top:0">¿En qué gastaste?</h1>
+    <p>Tienes {{ n_nodesc }} {{ 'pago' if n_nodesc == 1 else 'pagos' }} a personas sin descripción. Sin eso, no sabemos si fue comida, pasaje o un favor.</p>
+    <p class="muted">Tip: cuando yapees, escribe siempre el mensaje. Si se te olvida, complétalo aquí.</p>
+    <div class="actions">
+      <button class="btn" onclick="this.closest('dialog').close()">Luego</button>
+      <a class="btn primary" href="/pendientes">Completar</a>
+    </div>
+  </div>
+</dialog>
+<script>
+(function () {
+  const key = "tip:" + new Date().toISOString().slice(0, 10);
+  let seen = false;
+  try { seen = localStorage.getItem(key) === "1"; localStorage.setItem(key, "1"); } catch (_) { /* sin almacenamiento */ }
+  if (!seen) document.getElementById("tip").showModal();
+})();
+</script>
+{% endif %}
+{% endblock %}
