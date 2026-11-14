@@ -305,7 +305,6 @@
         if (name !== x.who) {
           const n = await call("payee.rename", { id: x.id, name }).catch(fail);
           x.who = name;
-          if (n > 1) toast(t("renamed_n", { n }));
         }
         btn.innerHTML = `<span data-name>${esc(x.who)}</span> ${ICON.pencil}`;
       };
@@ -356,13 +355,13 @@
       const inst = q("[data-inst]");
       if (inst && Number(inst.value) !== (x.installments || 1)) args.installments = Number(inst.value);
       if (cat !== null && !q("[data-wordbox]").hidden && q("[data-word]").checked) { args.categoryId = cat; args.rememberWord = true; }
-      await call("tx.update", args).then(() => { toast(t("saved")); opts.onDone("ok"); }).catch(fail);
+      await call("tx.update", args).then(() => opts.onDone("ok")).catch(fail);
     });
     // Eliminar: un toque, sin preguntas. Se puede deshacer.
     const remove = async (remember) => {
       const prev = x.status;
       await call("tx.update", { id: x.id, status: "excluded", description: q("[data-desc]").value, remember }).catch(fail);
-      toast(t("deleted"), t("undo"), async () => { await call("tx.update", { id: x.id, status: prev === "excluded" ? "pending" : prev }); toast(t("restored")); MG_refresh(); });
+      toast(t("deleted"), t("undo"), async () => { await call("tx.update", { id: x.id, status: prev === "excluded" ? "pending" : prev }); MG_refresh(); });
       opts.onDone("excluded");
     };
     q("[data-no]").addEventListener("click", async () => {
@@ -447,7 +446,7 @@
         if (!(args.amount > 0)) return $("#ea").focus();
         args.counterparty = $("#ew").value; args.when = $("#ed").value;
       }
-      await call("email.decide", args).then(() => { toast(t("saved")); history.back(); }).catch(fail);
+      await call("email.decide", args).then(() => history.back()).catch(fail);
     });
   }
 
@@ -521,7 +520,7 @@
       app().innerHTML = back + `<h1>${esc(t("cat_title"))}</h1><p class="muted">${esc(t("cat_hint"))}</p>` +
         cats.map((c) => `<div class="row"><input value="${esc(c.name)}" data-id="${c.id}" style="flex:1"><button class="muted" data-del="${c.id}" style="padding:8px">${esc(t("delete"))}</button></div>`).join("") +
         `<div class="row"><input id="newc" placeholder="${esc(t("new_category"))}" style="flex:1"></div>`;
-      app().querySelectorAll("[data-id]").forEach((i) => i.addEventListener("change", () => call("category.save", { id: Number(i.dataset.id), name: i.value }).then(() => toast(t("saved")))));
+      app().querySelectorAll("[data-id]").forEach((i) => i.addEventListener("change", () => call("category.save", { id: Number(i.dataset.id), name: i.value }).catch(fail)));
       app().querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", async () => { await call("category.delete", { id: Number(b.dataset.del) }); settings("categories"); }));
       $("#newc").addEventListener("change", async (e) => { if (e.target.value.trim()) { await call("category.save", { name: e.target.value }); settings("categories"); } });
       return;
