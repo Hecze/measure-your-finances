@@ -38,6 +38,7 @@
   let L = I18N.es, lang = "es";
   const t = (k, p) => String(L[k] ?? k).replace(/\{(\w+)\}/g, (_, x) => (p && p[x] !== undefined ? p[x] : ""));
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const moneyInt = (v) => "S/ " + Math.round(Number(v || 0)).toLocaleString("en-US");
   const money = (v, cur) => (cur === "USD" ? "US$ " : "S/ ") + Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const $ = (s, el = document) => el.querySelector(s);
   const app = () => $("#app");
@@ -161,6 +162,7 @@
   }
 
   // ---------------------------------------------------------------- inicio
+  let homeTab = "cats";
   async function home() {
     const [d, cats] = await Promise.all([call("home", { ym }), call("categories")]);
     ym = d.ym;
@@ -178,47 +180,63 @@
       const slices = catSlices(d.cats, cats);
       const sum = slices.reduce((a, x) => a + x.total, 0) || 1;
       const maxCat = Math.max(1, ...slices.map((x) => x.total));
+      const pct = (v) => Math.round((100 * v) / sum) + "%";
       const catRow = (x, i) => `
         <a class="catline" href="${x.href}" data-s="${i}">${catIcon(x.id)}
-          <span class="cl-main"><span class="cl-top"><span class="${x.id === null ? "muted" : ""}">${esc(x.name)}</span><span class="num cl-amt">${money(x.total)}</span></span>
+          <span class="cl-main"><span class="cl-top"><span class="${x.id === null ? "muted" : ""}">${esc(x.name)}</span>
+            <span><span class="muted cl-pct">${pct(x.total)}</span> <span class="num cl-amt">${moneyInt(x.total)}</span></span></span>
           <span class="cl-bar"><i style="width:${(100 * x.total) / maxCat}%;background:${x.color}"></i></span></span></a>`;
-      const SHOW = 6;
+      const tabs = [["cats", t("tab_categories")], ["top", t("tab_biggest")], ["details", t("tab_details")]];
+      const panes = {
+        cats: slices.length ? `
+          <div class="pie home-pie">${donut(slices, sum, true)}</div>
+          <p class="pie-cap" id="pcap">${esc(t("tap_slice"))}</p>
+          <div>${slices.map(catRow).join("")}</div>` : `<p class="empty">${esc(t("empty_month"))}</p>`,
+        top: (d.top || []).length ? `<div>${d.top.map((x, i) => `
+            <button class="row" data-top="${i}">
+              <span class="name" style="flex:1"><b>${esc(x.who)}${x.description ? `<span class="muted" style="font-weight:400"> · ${esc(x.description)}</span>` : ""}</b>
+                <small class="srcline">${catIcon(x.categoryId)}${esc(catName(x.categoryId, cats))} · ${srcIcon(x.src, "xs")}${esc(srcLabel(x, true))}</small></span>
+              <span class="amt num">${money(x.amountPen ?? x.amount)}</span>
+            </button>`).join("")}</div>
+          <a class="more" href="#list/all">${esc(t("see_all"))}</a>` : `<p class="empty">${esc(t("empty_month"))}</p>`,
+        details: `
+          <div class="fv">
+            <a href="#list/fixed"><small>${esc(t("fixed"))} · ${d.fixedN}</small><b class="num">${money(d.fixed)}</b></a>
+            <a href="#list/variable"><small>${esc(t("variable"))} · ${d.variableN}</small><b class="num">${money(d.variable)}</b></a>
+          </div>
+          <h2>${esc(t("by_source"))}</h2>
+          <div>${(d.bySource || []).map((x) => `
+            <a class="row" href="#settings/sources">${srcIcon(x, "lg")}
+              <span class="name" style="flex:1;margin-left:4px"><b>${esc(srcLabel({ src: x }))}</b><small>${esc(x.n === 1 ? t("payments_1") : t("payments_n", { n: x.n }))}</small></span>
+              <span class="amt num">${money(x.total)}</span></a>`).join("")}</div>
+          <a class="more" href="#list/all">${esc(t("see_all"))}</a>`,
+      };
       body = `
         <div class="hero">
           <div class="hero-label">${esc(d.nextYm ? t("spent_in", { m: monthLabel(d.ym) }) : t("spent_this_month_plain"))}</div>
           <div class="total num">${money(d.total)}</div>
           <div class="sub">${delta !== null ? `<span class="${delta > 0 ? "up" : "down"}">${Math.abs(delta)}% ${esc(delta > 0 ? t("more") : t("less"))}</span> ${esc(t("than_in", { m: prevName }))}` : ""}</div>
         </div>
-        ${d.count ? `<div class="fv">
-          <a href="#list/fixed"><small>${esc(t("fixed"))} · ${d.fixedN}</small><b class="num">${money(d.fixed)}</b></a>
-          <a href="#list/variable"><small>${esc(t("variable"))} · ${d.variableN}</small><b class="num">${money(d.variable)}</b></a>
-        </div>` : `<p class="empty">${esc(t("empty_month"))}</p>`}
         ${d.pending ? `<a class="todo" href="#pending"><span>${esc(d.pending === 1 ? t("pending_1") : t("pending_n", { n: d.pending }))}</span>${ICON.right}</a>` : ""}
-        ${slices.length ? `
-          <h2>${esc(t("where_it_went"))}</h2>
-          <div class="pie home-pie">${donut(slices, sum)}<div class="pie-c"><b class="num" id="pv">${money(d.total)}</b><small id="pn">${esc(t("total"))}</small></div></div>
-          <div>${slices.slice(0, SHOW).map(catRow).join("")}</div>
-          ${slices.length > SHOW ? `<div id="morecats" hidden>${slices.slice(SHOW).map((x, i) => catRow(x, i + SHOW)).join("")}</div>
-            <button class="link-inline" id="showcats">${esc(t("see_all_cats", { n: slices.length }))}</button>` : ""}` : ""}
-        ${d.top && d.top.length ? `
-          <h2>${esc(t("biggest"))}</h2>
-          <div>${d.top.map((x, i) => `
-            <button class="row" data-top="${i}">
-              <span class="name" style="flex:1"><b>${esc(x.who)}${x.description ? `<span class="muted" style="font-weight:400"> · ${esc(x.description)}</span>` : ""}</b>
-                <small class="srcline">${esc(catName(x.categoryId, cats))} · ${srcIcon(x.src, "xs")}${esc(srcLabel(x, true))}</small></span>
-              <span class="amt num">${money(x.amountPen ?? x.amount)}</span>
-            </button>`).join("")}</div>` : ""}
-        ${d.count ? `<a class="more" href="#list/all">${esc(t("see_all"))}</a>` : ""}
+        <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${homeTab === k}" data-tab="${k}">${esc(l)}</button>`).join("")}</div>
+        <div id="pane">${panes[homeTab] || panes.cats}</div>
         ${d.nextYm ? `<button class="more" id="now">${esc(t("back_to_now"))}</button>` : ""}`;
-      setTimeout(() => {
-        const sc = $("#showcats");
-        if (sc) sc.addEventListener("click", () => { $("#morecats").hidden = false; sc.remove(); });
-        pieTaps(slices);
+      const wire = () => {
+        pieTaps(slices, (x) => { $("#pcap").innerHTML = `<b>${esc(x.name)}</b> · ${moneyInt(x.total)} · ${pct(x.total)}`; });
         app().querySelectorAll("[data-top]").forEach((b) => b.addEventListener("click", () => {
           const el = document.createElement("div");
           const close = sheet("");
           $(".sheet").appendChild(el);
           editor(el, d.top[Number(b.dataset.top)], cats, { onDone: () => { close(); home(); } });
+        }));
+      };
+      setTimeout(() => {
+        wire();
+        app().querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
+          homeTab = b.dataset.tab;
+          app().querySelectorAll("[data-tab]").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+          $("#pane").innerHTML = panes[homeTab];
+          wire();
         }));
       });
     }
@@ -245,11 +263,12 @@
     });
   }
   // Tocar un trozo: muestra su nombre y monto al centro.
-  function pieTaps(slices) {
+  function pieTaps(slices, onPick) {
     app().querySelectorAll("[data-slice]").forEach((p) => p.addEventListener("click", () => {
       const x = slices[Number(p.dataset.slice)];
       app().querySelectorAll("[data-slice]").forEach((q) => q.classList.toggle("on", q === p));
-      $("#pv").textContent = money(x.total); $("#pn").textContent = x.name;
+      if (onPick) onPick(x);
+      else { $("#pv").textContent = money(x.total); $("#pn").textContent = x.name; }
     }));
   }
 
@@ -270,7 +289,7 @@
       return;
     }
     $("#smeta").textContent = t("source_hint");
-    let images = false;
+    let images = true;
     const paint = () => {
       // Visor aislado: sin scripts, sin formularios y, salvo que lo pidas, sin cargar nada de internet.
       const csp = `default-src 'none'; style-src 'unsafe-inline'; img-src data: ${images ? "https: http:" : ""}; font-src data:`;
@@ -316,14 +335,15 @@
     if (d.breakdown) {
       const slices = catSlices(d.breakdown.concat(d.unclassified ? [{ id: null, total: d.unclassified.total }] : []), cats);
       const sum = slices.reduce((a, x) => a + x.total, 0) || 1;
-      breakdown = `<div class="pie">${donut(slices, sum)}<div class="pie-c"><b class="num" id="pv">${money(d.total)}</b><small id="pn">${esc(t("variable"))}</small></div></div>` +
+      const pct = (v) => Math.round((100 * v) / sum) + "%";
+      breakdown = `<div class="pie home-pie">${donut(slices, sum, true)}</div><p class="pie-cap" id="pcap">${esc(t("tap_slice"))}</p>` +
         slices.map((x, i) => `
         <a class="catline" href="${x.href}" data-s="${i}">${catIcon(x.id)}
           <span class="cl-main"><span class="cl-top"><span class="${x.id === null ? "muted" : ""}">${esc(x.name)}</span>
-            <span><span class="muted cl-pct">${Math.round((100 * x.total) / sum)}%</span> <span class="num cl-amt">${money(x.total)}</span></span></span>
+            <span><span class="muted cl-pct">${pct(x.total)}</span> <span class="num cl-amt">${moneyInt(x.total)}</span></span></span>
           <span class="cl-bar"><i style="width:${(100 * x.total) / sum}%;background:${x.color}"></i></span></span></a>`).join("");
       breakdown = `<div>${breakdown}</div><h2>${esc(t("all_expenses"))}</h2>`;
-      setTimeout(() => pieTaps(slices));
+      setTimeout(() => pieTaps(slices, (x) => { $("#pcap").innerHTML = `<b>${esc(x.name)}</b> · ${moneyInt(x.total)} · ${pct(x.total)}`; }));
     }
     app().innerHTML = backBar(backHref, group.startsWith("cat:") || group === "none" ? t("variable") : monthLabel(d.ym)) + `
       <div class="hero-month">${esc(monthLabel(d.ym))}</div>
@@ -364,15 +384,17 @@
   }
 
   /** Dona en SVG: trozos con 2px de separación (el color de fondo), toque para ver el monto. */
-  function donut(slices, sum) {
-    const R = 80, r = 52, C = 100;
+  function donut(slices, sum, full) {
+    const R = full ? 98 : 80, r = full ? 0 : 52, C = 100;
     let a0 = -Math.PI / 2;
     const pt = (rad, a) => `${(C + rad * Math.cos(a)).toFixed(2)} ${(C + rad * Math.sin(a)).toFixed(2)}`;
     const paths = slices.map((x, i) => {
       const frac = x.total / sum;
-      if (frac >= 0.9999) return `<circle data-slice="${i}" cx="${C}" cy="${C}" r="${(R + r) / 2}" fill="none" stroke="${x.color}" stroke-width="${R - r}"/>`;
+      if (frac >= 0.9999) return full ? `<circle data-slice="${i}" class="solid" cx="${C}" cy="${C}" r="${R}" fill="${x.color}"/>`
+        : `<circle data-slice="${i}" cx="${C}" cy="${C}" r="${(R + r) / 2}" fill="none" stroke="${x.color}" stroke-width="${R - r}"/>`;
       const a1 = a0 + frac * 2 * Math.PI, big = frac > 0.5 ? 1 : 0;
-      const d = `M${pt(R, a0)} A${R} ${R} 0 ${big} 1 ${pt(R, a1)} L${pt(r, a1)} A${r} ${r} 0 ${big} 0 ${pt(r, a0)}Z`;
+      const d = full ? `M${C} ${C} L${pt(R, a0)} A${R} ${R} 0 ${big} 1 ${pt(R, a1)}Z`
+        : `M${pt(R, a0)} A${R} ${R} 0 ${big} 1 ${pt(R, a1)} L${pt(r, a1)} A${r} ${r} 0 ${big} 0 ${pt(r, a0)}Z`;
       a0 = a1;
       return `<path data-slice="${i}" d="${d}" fill="${x.color}"/>`;
     }).join("");
@@ -423,8 +445,8 @@
           <button class="ed-tag" data-more-toggle>${tagHtml()}</button>
         </div>
         ${x.src ? `<div class="src-box">
-          <div class="sb-main">${srcIcon(x.src, "lg")}
-            <span><small>${esc(t("paid_with"))}</small><b>${esc(srcLabel(x))}</b>${x.src.name ? `<small>${esc(srcLabel({ src: { ...x.src, name: null } }))}</small>` : ""}</span></div>
+          <a class="sb-main" href="#settings/sources">${srcIcon(x.src, "lg")}
+            <span><small>${esc(t("paid_with"))}</small><b>${esc(srcLabel(x))}</b>${x.src.name ? `<small>${esc(srcLabel({ src: { ...x.src, name: null } }))}</small>` : ""}</span><span class="sb-edit">${esc(t("edit"))}</span></a>
           ${x.ref || x.source === "email" ? `<div class="sb-foot"><span>${x.ref ? `${esc(t("operation"))} <b class="num">${esc(x.ref)}</b>` : ""}</span>
             ${x.source === "email" ? `<a class="sb-link" href="#source/${x.id}">${esc(t("see_source"))} ${ICON.right}</a>` : ""}</div>` : ""}
         </div>` : ""}
@@ -657,9 +679,9 @@
       const row = (href, label, value) => `<a class="row" href="${href}"><span class="name"><b style="font-weight:500">${esc(label)}</b></span><span class="muted">${esc(value || "")} </span></a>`;
       app().innerHTML = backBar("#", monthLabel(ym || new Date().toISOString().slice(0, 7))) + `
         <h1>${esc(t("settings"))}</h1>
+        ${row("#settings/sources", t("sources"), "")}
         ${row("#settings/gmail", t("gmail"), s.email && s.hasPassword ? t("connected") : t("connect"))}
         ${row("#import", t("yape_history"), s.lastYape ? s.lastYape.slice(0, 10) : "")}
-        ${row("#settings/sources", t("sources"), "")}
         ${row("#settings/categories", t("categories"), "")}
         ${row("#settings/words", t("words"), "")}
         ${row("#settings/language", t("language"), s.language === "auto" ? t("lang_auto") : s.language === "en" ? "English" : "Español")}

@@ -13,6 +13,7 @@ interface Storage {
     /** Correo original (HTML tal cual llegó), para "Ver la fuente". Aparte del JSON de datos. */
     fun saveMail(id: String, html: String) {}
     fun loadMail(id: String): String? = null
+    fun hasMail(id: String): Boolean = false
 }
 
 /** Contraseñas y API keys: fuera del JSON de datos (Android: almacenamiento cifrado). */
@@ -267,7 +268,9 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
             .put("noDesc", rows.count { it.counterpartyType == "person" && it.description.isBlank() })
             .put("hasEmail", hasEmail()).put("hasData", ledger.data.txs.isNotEmpty())
             .put("cats", byCategory(rows))
-            .put("top", JSONArray(rows.sortedByDescending { ledger.pen(it) }.take(3).map { txView(it) }))
+            .put("top", JSONArray(rows.sortedByDescending { ledger.pen(it) }.take(10).map { txView(it) }))
+            .put("bySource", JSONArray(rows.groupBy { sourceKey(it) }.values.map { l ->
+                srcJson(l.first()).put("total", l.sumOf { ledger.pen(it) }).put("n", l.size) }.sortedByDescending { it.getDouble("total") }))
     }
 
     /** En qué se fue: total por categoría (todas, fijas y variables), de mayor a menor; sin clasificar al final. */
@@ -405,7 +408,9 @@ class Api(private val storage: Storage, private val secrets: Secrets, private va
 
     fun syncEmail(onProgress: (Int, Int) -> Unit = { _, _ -> }): JSONObject {
         val pass = secrets.get("imap")
-        val (s, known) = synchronized(lock) { ledger.data.settings to ledger.data.emails.keys.toSet() }
+        // Un correo ya leído cuenta como conocido solo si además tenemos su original guardado:
+        // así la primera lectura tras actualizar baja (por tandas) los originales que faltan, para "Ver la fuente".
+        val (s, known) = synchronized(lock) { ledger.data.settings to ledger.data.emails.keys.filter { storage.hasMail(it) }.toSet() }
         if (s.email.isBlank() || pass.isNullOrBlank()) throw Exception("no_email")
         var newExp = 0; var unknown = 0; var imported = 0
         // Cada tanda se procesa y se guarda apenas llega (si se corta a la mitad, lo leído queda).

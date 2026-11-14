@@ -251,3 +251,17 @@ h2 { font-size: .95rem; text-transform: none; letter-spacing: 0; color: var(--te
 .imgpick img { width: 44px; height: 44px; object-fit: contain; border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
 .imgpick .btn { width: auto; }
 .filebtn { display: inline-flex; margin: 0; color: var(--text); font-size: 1rem; }
+
+/* pestañas de inicio y torta */
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); margin: 22px 0 6px; }
+.tabs button { padding: 12px 4px; font-size: .95rem; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
+.home-pie { width: min(260px, 72vw); margin: 18px auto 6px; }
+.pie-svg path, .pie-svg circle.solid { stroke: var(--bg); stroke-width: 1.5px; }
+.pie-svg circle.solid { stroke-width: 0; }
+.pie-cap { text-align: center; color: var(--muted); font-size: .9rem; min-height: 1.4em; margin: 6px 0 10px; }
+.pie-cap b { color: var(--text); font-weight: 600; }
+.sb-main { color: inherit; }
+.sb-main > span:nth-child(2) { flex: 1; }
+.sb-edit { color: var(--accent); font-size: .85rem; font-weight: 600; }
+.srcline .icon.cat { width: 15px; height: 15px; color: var(--muted); opacity: 1; margin-right: 1px; }

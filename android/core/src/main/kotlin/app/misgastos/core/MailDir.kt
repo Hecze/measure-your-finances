@@ -20,6 +20,8 @@ class MailDir(private val dir: File) {
         if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
     }
 
+    fun has(id: String): Boolean = fileFor(id).exists()
+
     fun load(id: String): String? {
         val f = fileFor(id)
         if (!f.exists()) return null

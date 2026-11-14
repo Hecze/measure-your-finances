@@ -29,6 +29,7 @@ fun main() {
             override fun save(json: String) = dataFile.writeText(json)
             private val mails = app.misgastos.core.MailDir(File(dataFile.absoluteFile.parentFile, "mail"))
             override fun saveMail(id: String, html: String) = mails.save(id, html)
+            override fun hasMail(id: String) = mails.has(id)
             // En desarrollo, los correos de ejemplo se leen de la carpeta de semillas.
             override fun loadMail(id: String): String? = mails.load(id) ?: System.getenv("SEED_EMAILS_DIR")
                 ?.let { File(it, "$id.json") }?.takeIf { it.exists() }?.let { JSONObject(it.readText()).optString("htmlBody") }
@@ -53,7 +54,7 @@ fun main() {
         }
         val f = File(web, if (path == "/") "index.html" else path.removePrefix("/"))
         if (!f.isFile || !f.canonicalPath.startsWith(web.canonicalPath)) { ex.sendResponseHeaders(404, -1); ex.close(); return@createContext }
-        val type = when (f.extension) { "html" -> "text/html"; "css" -> "text/css"; "js" -> "text/javascript"; else -> "application/octet-stream" }
+        val type = when (f.extension) { "html" -> "text/html"; "css" -> "text/css"; "js" -> "text/javascript"; "svg" -> "image/svg+xml"; "woff2" -> "font/woff2"; else -> "application/octet-stream" }
         ex.responseHeaders.add("Content-Type", "$type; charset=utf-8")
         val bytes = f.readBytes()
         ex.sendResponseHeaders(200, bytes.size.toLong()); ex.responseBody.use { it.write(bytes) }
