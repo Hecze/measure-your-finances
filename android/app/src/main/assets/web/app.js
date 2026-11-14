@@ -297,7 +297,7 @@
       q(".skeleton").outerHTML = `<p class="muted">${esc(t("source_missing"))}</p>${gmail ? `<div class="mailbar one">${gmail}</div>` : ""}`;
       return;
     }
-    let images = true;
+    const images = true;
     const paint = () => {
       // Visor aislado: sin scripts ni formularios. Las imágenes del banco se pueden ocultar.
       const csp = `default-src 'none'; style-src 'unsafe-inline'; img-src data: ${images ? "https: http:" : ""}; font-src data:`;
@@ -305,7 +305,7 @@
         <base target="_blank"><style>html,body{margin:0;background:#fff}${images ? "" : "img:not([src^='data:']){visibility:hidden}"}</style></head><body>${d.html}</body></html>`;
       const prev = q(".src-body");
       const html = `<div class="mailframe ${prev ? "" : "loading"}"><iframe sandbox="allow-same-origin" referrerpolicy="no-referrer" title="${esc(t("source_title"))}"></iframe></div>
-        <div class="mailbar"><button class="btn" data-simg>${esc(images ? t("hide_images") : t("show_images"))}</button>${gmail}</div>`;
+        ${gmail ? `<div class="mailbar one">${gmail}</div>` : ""}`;
       const wrap = document.createElement("div"); wrap.className = "src-body"; wrap.innerHTML = html;
       // Primera vez: el esqueleto se queda visible hasta que el correo esté listo y ajustado al ancho.
       const skel = q(".skeleton");
@@ -325,7 +325,6 @@
         wrap.querySelector(".mailframe").classList.remove("loading");
       });
       f.srcdoc = doc;
-      wrap.querySelector("[data-simg]").addEventListener("click", () => { images = !images; paint(); });
     };
     paint();
   }
