@@ -200,8 +200,11 @@
   function go(hash) { if (location.hash.slice(1) === hash) render(); else location.hash = hash; }
   window.addEventListener("hashchange", render);
 
+  let params = new URLSearchParams();
   async function render() {
-    const [route, ...rest] = location.hash.slice(1).split("/");
+    const [path, query] = location.hash.slice(1).split("?");
+    const [route, ...rest] = path.split("/");
+    params = new URLSearchParams(query || "");
     document.querySelectorAll(".sheet-bg").forEach((e) => e.remove()); // una hoja nunca sobrevive a un cambio de pantalla
     try {
       await page(route, rest);
@@ -216,7 +219,7 @@
       switch (route) {
         case "": case "home": return await home();
         case "pending": return await pending();
-        case "list": return await list(rest[0] || "all");
+        case "list": return await list(rest[0] || "all", params);
         case "tx": return await pending(Number(rest[0]));
         case "settings": return await settings(rest[0]);
         case "email": return await emailReview(decodeURIComponent(rest.join("/")));
@@ -268,7 +271,7 @@
           </div>
           <h2>${esc(t("by_source"))}</h2>
           <div>${(d.bySource || []).map((x) => `
-            <a class="row" href="#settings/sources">${srcIcon(x, "lg")}
+            <a class="row" href="#list/all?src=${encodeURIComponent(x.key)}">${srcIcon(x, "lg")}
               <span class="name" style="flex:1;margin-left:4px"><b>${esc(srcLabel({ src: x }))}</b><small>${esc(x.n === 1 ? t("payments_1") : t("payments_n", { n: x.n }))}</small></span>
               <span class="amt num">${money(x.total)}</span></a>`).join("")}</div>
           <a class="more" href="#list/all">${esc(t("see_all"))}</a>`,
@@ -404,11 +407,34 @@
   }
 
   // ---------------------------------------------------------------- lista
-  async function list(group) {
+  async function list(group, prm) {
     const d = await call("list", { ym, group });
     const cats = await call("categories");
+    // Filtros y orden (solo en "Todos los gastos"): medio de pago, categoría, fijo/variable; mayor monto o más reciente.
+    const f = { src: (prm && prm.get("src")) || "", cat: (prm && prm.get("cat")) || "", type: (prm && prm.get("type")) || "", sort: (prm && prm.get("sort")) || "amount" };
+    const filtered = group === "all" && (f.src || f.cat || f.type);
+    if (group === "all") {
+      d.items = d.items.filter((x) => (!f.src || (x.src && x.src.key === f.src))
+        && (!f.cat || (f.cat === "none" ? x.categoryId == null : String(x.categoryId) === f.cat))
+        && (!f.type || (f.type === "fixed" ? x.fixed : !x.fixed)));
+      if (filtered) d.total = d.items.filter((x) => x.status !== "excluded").reduce((a, x) => a + (x.amountPen ?? x.amount), 0);
+    }
     const title = group === "fixed" ? t("fixed") : group === "variable" ? t("variable") : group === "none" ? t("unclassified")
       : group.startsWith("cat:") ? (cats.find((c) => "cat:" + c.id === group) || {}).name : t("all_expenses");
+    let filterBar = "";
+    if (group === "all") {
+      const all = (await call("list", { ym, group: "all" })).items;
+      const srcs = []; all.forEach((x) => { if (x.src && !srcs.find((y) => y.key === x.src.key)) srcs.push(x.src); });
+      const sel = (name, label, opts, val) => `<label class="fsel ${val ? "on" : ""}"><span>${esc(label)}${val ? ":" : ""}</span>${val ? `<b>${esc((opts.find((o) => o[0] === val) || [0, ""])[1])}</b>` : ""}
+        <select data-f="${name}">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === val ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+      filterBar = `<div class="filters">
+        ${sel("sort", t("f_sort"), [["amount", t("f_sort_amount")], ["recent", t("f_sort_recent")]], f.sort === "amount" ? "" : f.sort)}
+        ${sel("src", t("f_source"), [["", t("f_all")]].concat(srcs.map((x) => [x.key, srcLabel({ src: x })])), f.src)}
+        ${sel("cat", t("f_category"), [["", t("f_all_f")]].concat(cats.map((c) => [String(c.id), c.name]), [["none", t("unclassified")]]), f.cat)}
+        ${sel("type", t("f_type"), [["", t("f_all")], ["fixed", t("fixed")], ["variable", t("variable")]], f.type)}
+        ${filtered || f.sort !== "amount" ? `<button class="fclear" data-fclear>${esc(t("f_clear"))}</button>` : ""}
+      </div>`;
+    }
     const backHref = group.startsWith("cat:") || group === "none" ? "#list/variable" : "#";
     let breakdown = "";
     if (d.breakdown) {
@@ -429,16 +455,19 @@
       <h1 style="margin-top:2px">${esc(title)}</h1>
       <div class="total num" style="font-size:2rem;margin-bottom:8px">${money(d.total)}</div>
       ${breakdown}
+      ${filterBar}
       <div id="items"></div>
       ${group === "all" ? `<button class="more" data-add>${esc(t("add_cash"))}</button>` : ""}`;
     // De mayor a menor: los 6 más grandes y un séptimo "Otros" con la suma del resto.
     const order = d.items.map((x, i) => ({ x, i }));
-    const counted = order.filter((o) => o.x.status !== "excluded").sort((a, b) => (b.x.amountPen ?? b.x.amount) - (a.x.amountPen ?? a.x.amount));
-    const excluded = order.filter((o) => o.x.status === "excluded").sort((a, b) => (b.x.amountPen ?? b.x.amount) - (a.x.amountPen ?? a.x.amount));
+    const cmp = f.sort === "recent" ? (a, b) => String(b.x.when).localeCompare(String(a.x.when))
+      : (a, b) => (b.x.amountPen ?? b.x.amount) - (a.x.amountPen ?? a.x.amount);
+    const counted = order.filter((o) => o.x.status !== "excluded").sort(cmp);
+    const excluded = order.filter((o) => o.x.status === "excluded").sort(cmp);
     const itemRow = ({ x, i }) => txRow(x, `data-i="${i}"`, cats);
     const box = $("#items");
     if (!d.items.length) box.innerHTML = `<p class="empty">${esc(t("empty_month"))}</p>`;
-    else if (counted.length + excluded.length <= 7) box.innerHTML = counted.concat(excluded).map(itemRow).join("");
+    else if (counted.length + excluded.length <= 7 || filtered || f.sort !== "amount") box.innerHTML = counted.concat(excluded).map(itemRow).join("");
     else {
       const rest = counted.slice(6).concat(excluded);
       const restSum = counted.slice(6).reduce((s, o) => s + (o.x.amountPen ?? o.x.amount), 0);
@@ -452,10 +481,17 @@
       const el = document.createElement("div");
       const close = sheet("");
       $(".sheet").appendChild(el);
-      editor(el, d.items[Number(b.dataset.i)], cats, { onDone: () => { close(); list(group); } });
+      editor(el, d.items[Number(b.dataset.i)], cats, { onDone: () => { close(); list(group, prm); } });
     }));
     const add = $("[data-add]");
     if (add) add.addEventListener("click", addCash);
+    const apply = (nf) => {
+      const q = new URLSearchParams(); Object.entries(nf).forEach(([k, v]) => { if (v && !(k === "sort" && v === "amount")) q.set(k, v); });
+      location.hash = "#list/all" + (q.toString() ? "?" + q.toString() : "");
+    };
+    app().querySelectorAll("[data-f]").forEach((sl) => sl.addEventListener("change", () => apply({ ...f, [sl.dataset.f]: sl.value })));
+    const fc = $("[data-fclear]");
+    if (fc) fc.addEventListener("click", () => apply({}));
   }
 
   /** Dona en SVG: trozos con 2px de separación (el color de fondo), toque para ver el monto. */

@@ -338,3 +338,17 @@ body.loading::before { opacity: 1; animation: loadbar 1s ease-in-out infinite; }
 @keyframes sheetdown { to { transform: translateY(100%); } }
 #pane.enter { animation: pagein .18s ease-out; }
 @media (prefers-reduced-motion: reduce) { #app.enter, .sheet-bg, .sheet-bg .sheet, #pane.enter { animation: none !important; } }
+
+/* filtros de la lista */
+.filters { display: flex; gap: 8px; overflow-x: auto; margin: 6px -20px 8px; padding: 2px 20px 6px; scrollbar-width: none; }
+.filters::-webkit-scrollbar { display: none; }
+.fsel { position: relative; flex: none; display: inline-flex; align-items: center; gap: 4px; margin: 0; height: 38px; padding: 0 30px 0 12px;
+        border: 1px solid #cdd1d8; border-radius: 999px; font-size: .88rem; color: var(--text); background: var(--bg); }
+.fsel span { color: var(--muted); }
+.fsel.on { border-color: var(--accent); background: var(--tint); }
+.fsel.on span { color: var(--accent); }
+.fsel b { font-weight: 600; color: var(--accent); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fsel select { position: absolute; inset: 0; opacity: 0; width: 100%; padding: 0; }
+.fsel::after { content: ""; position: absolute; right: 12px; top: 50%; width: 7px; height: 7px; border-right: 1.6px solid var(--muted);
+               border-bottom: 1.6px solid var(--muted); transform: translateY(-70%) rotate(45deg); }
+.fclear { flex: none; height: 38px; padding: 0 6px; color: var(--accent); font-size: .88rem; }
