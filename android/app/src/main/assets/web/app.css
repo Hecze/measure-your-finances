@@ -352,3 +352,6 @@ body.loading::before { opacity: 1; animation: loadbar 1s ease-in-out infinite; }
 .fsel::after { content: ""; position: absolute; right: 12px; top: 50%; width: 7px; height: 7px; border-right: 1.6px solid var(--muted);
                border-bottom: 1.6px solid var(--muted); transform: translateY(-70%) rotate(45deg); }
 .fclear { flex: none; height: 38px; padding: 0 6px; color: var(--accent); font-size: .88rem; }
+.excl-toggle { display: flex; align-items: center; gap: 6px; margin-top: 18px; padding: 10px 0; color: var(--muted); font-size: .9rem; }
+.excl-toggle .icon { width: 16px; height: 16px; transition: transform .15s; }
+.excl-toggle.open .icon { transform: rotate(180deg); }

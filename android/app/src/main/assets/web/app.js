@@ -466,17 +466,22 @@
     const excluded = order.filter((o) => o.x.status === "excluded").sort(cmp);
     const itemRow = ({ x, i }) => txRow(x, `data-i="${i}"`, cats);
     const box = $("#items");
+    // Los eliminados no suman: van aparte, al final y plegados.
+    const exHtml = excluded.length ? `<button class="excl-toggle" id="exToggle">${esc(t("deleted_n", { n: excluded.length }))}${ICON.down}</button>
+      <div id="exList" hidden><p class="note" style="margin:0 0 4px">${esc(t("deleted_note"))}</p>${excluded.map(itemRow).join("")}</div>` : "";
     if (!d.items.length) box.innerHTML = `<p class="empty">${esc(t("empty_month"))}</p>`;
-    else if (counted.length + excluded.length <= 7 || filtered || f.sort !== "amount") box.innerHTML = counted.concat(excluded).map(itemRow).join("");
+    else if (counted.length <= 7 || filtered || f.sort !== "amount") box.innerHTML = counted.map(itemRow).join("") + exHtml;
     else {
-      const rest = counted.slice(6).concat(excluded);
-      const restSum = counted.slice(6).reduce((s, o) => s + (o.x.amountPen ?? o.x.amount), 0);
+      const rest = counted.slice(6);
+      const restSum = rest.reduce((s, o) => s + (o.x.amountPen ?? o.x.amount), 0);
       box.innerHTML = counted.slice(0, 6).map(itemRow).join("") + `
-        <button class="row" id="others"><span class="icon cat"></span><span class="name" style="flex:1"><b>${esc(t("others"))}</b><small>${esc(t("payments_n", { n: counted.length - 6 }))}</small></span>
+        <button class="row" id="others"><span class="name" style="flex:1"><b>${esc(t("others"))}</b><small>${esc(t("payments_n", { n: rest.length }))}</small></span>
           <span class="amt num">${money(restSum)}</span></button>
-        <div id="rest" hidden>${rest.map(itemRow).join("")}</div>`;
+        <div id="rest" hidden>${rest.map(itemRow).join("")}</div>` + exHtml;
       $("#others").addEventListener("click", () => { $("#others").hidden = true; $("#rest").hidden = false; });
     }
+    const ext = $("#exToggle");
+    if (ext) ext.addEventListener("click", () => { $("#exList").hidden = !$("#exList").hidden; ext.classList.toggle("open"); });
     app().querySelectorAll("[data-i]").forEach((b) => b.addEventListener("click", () => {
       const el = document.createElement("div");
       const close = sheet("");
@@ -637,7 +642,7 @@
       const v = q("[data-desc]").value;
       if (v !== x.description) call("tx.update", { id: x.id, description: v }).then(() => { x.description = v; }).catch(fail);
     });
-    q("[data-desc]").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); q("[data-ok]").click(); } });
+    q("[data-desc]").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); q("[data-ok]").click(); } });
     q("[data-catsel]").addEventListener("click", () => { q("[data-catlist]").hidden = !q("[data-catlist]").hidden; });
     qa("[data-cat]").forEach((b) => b.addEventListener("click", () => {
       cat = b.dataset.cat === "" ? null : Number(b.dataset.cat);
